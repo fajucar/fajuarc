@@ -1,7 +1,6 @@
-import { useState, useEffect, type ComponentType } from 'react'
+import { useState, type ComponentType } from 'react'
 import { Menu, X, ArrowLeftRight, Waves, Home, Wallet, Bot } from 'lucide-react'
 import { NavLink, Link } from 'react-router-dom'
-import { usePrivy } from '@privy-io/react-auth'
 import { useTranslation } from 'react-i18next'
 import { ConnectButton } from '@/components/Web3/ConnectButton'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -47,23 +46,8 @@ function NavItem({ to, icon: Icon, label }: { to: string; icon: ComponentType<{ 
 
 export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const { authenticated, user } = usePrivy()
   const { t } = useTranslation()
   const { theme, toggleTheme } = useTheme()
-
-  useEffect(() => {
-    if (authenticated && user) {
-      const identity =
-        user?.google?.email ||
-        user?.discord?.email ||
-        user?.twitter?.username ||
-        (user?.linkedAccounts?.find((a: any) => a.type === 'google_oauth') as any)?.email ||
-        (user?.linkedAccounts?.find((a: any) => a.type === 'discord_oauth') as any)?.email ||
-        (user?.linkedAccounts?.find((a: any) => a.type === 'twitter_oauth') as any)?.username ||
-        'Connected'
-      console.log('[Header] User authenticated:', identity)
-    }
-  }, [authenticated, user])
 
   return (
     <header>

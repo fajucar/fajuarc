@@ -1061,7 +1061,7 @@ router.post('/chat', async (req, res) => {
 
   } catch (err) {
     console.error('[Agent] Anthropic error:', err.message)
-    return res.status(500).json({ error: err.message ?? 'Erro ao chamar Anthropic' })
+    return res.status(500).json({ error: 'Something went wrong, try again' })
   }
 })
 

@@ -16,6 +16,18 @@ export const ARCSCAN_API = process.env.ARCSCAN_API ?? 'https://explorer.arc.io/a
 
 const ARCSCAN_ORIGIN = new URL(ARCSCAN_API).origin
 
+/** True for a 0x-prefixed, 40-hex-digit EVM address. */
+export function isEvmAddress(address) {
+  return typeof address === 'string' && /^0x[0-9a-fA-F]{40}$/.test(address)
+}
+
+// The address is interpolated into the explorer URL path, so anything else
+// (e.g. "../") could reach other explorer endpoints. Checked here too, not
+// only in the routes, because agent.mjs calls fetchTokenTransfers directly.
+function assertEvmAddress(address) {
+  if (!isEvmAddress(address)) throw new Error('Invalid address')
+}
+
 async function getJson(url) {
   const r = await fetch(url, {
     headers: {
@@ -27,20 +39,24 @@ async function getJson(url) {
   return r.json()
 }
 
-export function fetchAddressTransactions(address) {
+export async function fetchAddressTransactions(address) {
+  assertEvmAddress(address)
   return getJson(`${ARCSCAN_API}/addresses/${address}/transactions`)
 }
 
-export function fetchTokenTransfers(address) {
+export async function fetchTokenTransfers(address) {
+  assertEvmAddress(address)
   return getJson(`${ARCSCAN_API}/addresses/${address}/token-transfers`)
 }
 
-export function fetchAddressInfo(address) {
+export async function fetchAddressInfo(address) {
+  assertEvmAddress(address)
   return getJson(`${ARCSCAN_API}/addresses/${address}`)
 }
 
 // Dedicated counters endpoint — returns the REAL total transaction count for
 // the address, unlike /transactions which is paginated at 50 items/page.
-export function fetchAddressCounters(address) {
+export async function fetchAddressCounters(address) {
+  assertEvmAddress(address)
   return getJson(`${ARCSCAN_API}/addresses/${address}/counters`)
 }

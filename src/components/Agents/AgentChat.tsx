@@ -485,7 +485,6 @@ export function AgentChat({ personality, walletAddress }: AgentChatProps) {
         // Fire the Privy consent popup; safe to call even if already granted.
         if (data.needsSessionSigner && data.sessionSignerAddress) {
           try {
-            console.log('[SessionSigner] requesting consent for', data.sessionSignerAddress)
             await grantSigner(data.sessionSignerAddress as string)
             console.log('[SessionSigner] consent granted OK')
             pushDisplay({ kind: 'agent', text: t('agentChat.sessionSignerGranted', 'Pronto! Autorização concedida — seus pagamentos agendados serão enviados automaticamente da sua carteira. 🔐') })

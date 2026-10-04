@@ -17,7 +17,7 @@ import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { executeContractCall, getCircleClient, getOrCreateWallet } from './circle.mjs'
 import { ARC_NETWORK, ARC_CHAIN_ID, ARC_RPC_URL, CIRCLE_BLOCKCHAIN, getCircleCredentials } from './network.mjs'
-import { fetchAddressTransactions, fetchTokenTransfers, fetchAddressInfo, fetchAddressCounters } from './arcscan.mjs'
+import { fetchAddressTransactions, fetchTokenTransfers, fetchAddressInfo, fetchAddressCounters, isEvmAddress } from './arcscan.mjs'
 import { findUserByAddress, findUserByEmail, setWallet } from './walletsDb.mjs'
 import { getRedis } from './network.mjs'
 import { requireAuth, assertAuthConfigured, ownsAddress, ownsCircleEntry, FORBIDDEN_WALLET } from './auth.mjs'
@@ -87,6 +87,27 @@ const app = express()
 app.use(cors({ origin: FRONTEND_URL, credentials: true }))
 app.use(express.json())
 
+// ── Response/log helpers ──────────────────────────────────────────────────────
+// 500s never echo internal error text (Circle/Redis/RPC details) to the
+// client: the full error goes to the server log, the client gets a generic one.
+const GENERIC_ERROR = 'Something went wrong, try again'
+function serverError(res, tag, err) {
+  console.error(`[${tag}]`, err?.response?.data?.message ?? err?.message ?? err)
+  return res.status(500).json({ error: GENERIC_ERROR })
+}
+
+/** Wallet addresses in logs are always shortened (0x1234...abcd), never full. */
+function shortAddr(addr) {
+  const s = String(addr ?? '')
+  return s.length > 12 ? `${s.slice(0, 6)}...${s.slice(-4)}` : s
+}
+
+/** Rejects an /api/explorer/* request whose :address isn't 0x + 40 hex. */
+function requireEvmAddressParam(req, res, next) {
+  if (!isEvmAddress(req.params.address)) return res.status(400).json({ error: 'Invalid address' })
+  next()
+}
+
 // ── Rotas ─────────────────────────────────────────────────────────────────────
 
 app.get('/api/health', (_req, res) => res.json({ ok: true }))
@@ -125,7 +146,7 @@ app.get('/api/wallet/info', requireAuth(), async (req, res) => {
 
     return res.status(400).json({ error: 'email ou address obrigatório' })
   } catch (err) {
-    return res.status(500).json({ error: err?.message ?? 'Erro ao buscar carteira' })
+    return serverError(res, 'wallet/info', err)
   }
 })
 
@@ -144,8 +165,7 @@ app.post('/api/contract-call', requireAuth(), async (req, res) => {
     const txHash = await executeContractCall({ walletId, contractAddress, functionSignature: abiFunctionSignature, parameters: abiParameters })
     return res.json({ success: true, txHash })
   } catch (err) {
-    console.error('[contract-call] Erro:', err?.response?.data?.message ?? err?.message)
-    return res.status(500).json({ error: err?.response?.data?.message ?? err?.message ?? String(err) })
+    return serverError(res, 'contract-call', err)
   }
 })
 
@@ -171,7 +191,7 @@ app.post('/api/send-usdc', requireAuth(), async (req, res) => {
     const nonce = parseInt((await nonceRes.json()).result, 16)
     const gasPrice = (await gasPriceRes.json()).result
 
-    console.log('[Circle] Assinando transação:', fromAddress, '→', toAddress, amountUsdc, 'USDC')
+    console.log('[Circle] Assinando transação:', shortAddr(fromAddress), '→', shortAddr(toAddress), amountUsdc, 'USDC')
 
     const signRes = await circle.signTransaction({
       walletId: userEntry.walletId,
@@ -198,8 +218,7 @@ app.post('/api/send-usdc', requireAuth(), async (req, res) => {
     console.log('[Arc] ✅ Transação enviada:', sendData.result)
     return res.json({ success: true, txHash: sendData.result })
   } catch (err) {
-    console.error('[Circle] ❌ Erro ao enviar:', err?.message ?? err)
-    return res.status(500).json({ error: err?.message ?? 'Erro ao enviar' })
+    return serverError(res, 'Circle send-usdc', err)
   }
 })
 
@@ -209,7 +228,7 @@ app.post('/api/wallet/get-or-create', requireAuth(), async (req, res) => {
     const wallet = await getOrCreateWallet(req.auth.userId)
     return res.json({ address: wallet.address, walletId: wallet.walletId })
   } catch (err) {
-    return res.status(500).json({ error: err?.message ?? 'Erro interno' })
+    return serverError(res, 'wallet/get-or-create', err)
   }
 })
 
@@ -222,7 +241,7 @@ app.get('/api/wallet/balance', requireAuth(), async (req, res) => {
     const result = await getCircleClient().getWalletTokenBalance({ id: walletId })
     return res.json({ balances: result?.data?.tokenBalances ?? [] })
   } catch (err) {
-    return res.status(500).json({ error: err.message })
+    return serverError(res, 'wallet/balance', err)
   }
 })
 
@@ -237,8 +256,7 @@ app.post('/api/wallet/execute', requireAuth(), async (req, res) => {
     const txHash = await executeContractCall({ walletId, contractAddress, functionSignature, parameters })
     return res.json({ success: true, txHash })
   } catch (err) {
-    console.error('[Execute] error:', err.message)
-    return res.status(500).json({ error: err.message })
+    return serverError(res, 'Execute', err)
   }
 })
 
@@ -257,7 +275,7 @@ app.get('/api/wallet/withdrawal-address/:address', requireAuth(), async (req, re
     if (!canManageWithdrawal(req.auth, address, user)) return res.status(403).json({ error: FORBIDDEN_WALLET })
     return res.json({ withdrawalAddress: user?.withdrawalAddress ?? null })
   } catch (err) {
-    return res.status(500).json({ error: err?.message ?? 'Erro ao buscar endereço de saque' })
+    return serverError(res, 'Withdrawal GET', err)
   }
 })
 
@@ -280,60 +298,58 @@ app.post('/api/wallet/withdrawal-address', requireAuth(), async (req, res) => {
       const { userId, ...entry } = found
       await setWallet(userId, { ...entry, withdrawalAddress })
     }
-    console.log(`[Withdrawal] Endereço salvo: ${walletAddress.slice(0, 10)}... → ${withdrawalAddress}`)
+    console.log(`[Withdrawal] Endereço salvo: ${shortAddr(walletAddress)} → ${shortAddr(withdrawalAddress)}`)
     return res.json({ success: true })
   } catch (err) {
-    return res.status(500).json({ error: err?.message ?? 'Erro ao salvar endereço de saque' })
+    return serverError(res, 'Withdrawal POST', err)
   }
 })
 
 // ── Arc Testnet Explorer proxy (via ArcScan, see server/arcscan.mjs) ──────────
+// Public on-chain data, so no auth — but :address must be 0x + 40 hex before
+// it's put into the explorer URL (requireEvmAddressParam).
 
-app.get('/api/explorer/address/:address', async (req, res) => {
-  console.log('[Explorer] GET transactions for', req.params.address)
+app.get('/api/explorer/address/:address', requireEvmAddressParam, async (req, res) => {
+  console.log('[Explorer] GET transactions for', shortAddr(req.params.address))
   try {
     const data = await fetchAddressTransactions(req.params.address)
     console.log('[Explorer] OK – items:', data?.items?.length ?? 'N/A')
     res.json(data)
   } catch(err) {
-    console.error('[Explorer] FAIL:', err.message)
-    res.status(500).json({ error: err.message })
+    return serverError(res, 'Explorer transactions', err)
   }
 })
 
-app.get('/api/explorer/address/:address/token-transfers', async (req, res) => {
-  console.log('[Explorer] GET token-transfers for', req.params.address)
+app.get('/api/explorer/address/:address/token-transfers', requireEvmAddressParam, async (req, res) => {
+  console.log('[Explorer] GET token-transfers for', shortAddr(req.params.address))
   try {
     const data = await fetchTokenTransfers(req.params.address)
     console.log('[Explorer] token-transfers OK – items:', data?.items?.length ?? 'N/A')
     res.json(data)
   } catch(err) {
-    console.error('[Explorer] token-transfers FAIL:', err.message)
-    res.status(500).json({ error: err.message })
+    return serverError(res, 'Explorer token-transfers', err)
   }
 })
 
-app.get('/api/explorer/address/:address/info', async (req, res) => {
-  console.log('[Explorer] GET info for', req.params.address)
+app.get('/api/explorer/address/:address/info', requireEvmAddressParam, async (req, res) => {
+  console.log('[Explorer] GET info for', shortAddr(req.params.address))
   try {
     const data = await fetchAddressInfo(req.params.address)
     console.log('[Explorer] info OK')
     res.json(data)
   } catch(err) {
-    console.error('[Explorer] info FAIL:', err.message)
-    res.status(500).json({ error: err.message })
+    return serverError(res, 'Explorer info', err)
   }
 })
 
-app.get('/api/explorer/address/:address/counters', async (req, res) => {
-  console.log('[Explorer] GET counters for', req.params.address)
+app.get('/api/explorer/address/:address/counters', requireEvmAddressParam, async (req, res) => {
+  console.log('[Explorer] GET counters for', shortAddr(req.params.address))
   try {
     const data = await fetchAddressCounters(req.params.address)
     console.log('[Explorer] counters OK – transactions_count:', data?.transactions_count)
     res.json(data)
   } catch(err) {
-    console.error('[Explorer] counters FAIL:', err.message)
-    res.status(500).json({ error: err.message })
+    return serverError(res, 'Explorer counters', err)
   }
 })
 
@@ -361,7 +377,8 @@ app.get('/api/notifications/stream', requireAuth({ allowQueryToken: true }), (re
   res.write(': connected\n\n')
 
   const onNotification = (payload) => {
-    if (address && payload.walletAddress && payload.walletAddress !== address) return
+    // Events without an owner address are dropped, never sent to every client.
+    if (!payload.walletAddress || payload.walletAddress !== address) return
     res.write(`data: ${JSON.stringify(payload)}\n\n`)
   }
   notificationBus.on('notification', onNotification)

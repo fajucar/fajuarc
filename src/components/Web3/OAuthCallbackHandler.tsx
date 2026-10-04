@@ -46,7 +46,6 @@ export function OAuthCallbackHandler() {
     if (hasOAuth) {
       loggedRef.current = true
       console.group('[OAuthCallback] 🔄 Retorno OAuth detectado na URL')
-      console.log('privy_oauth_state:', url.searchParams.get('privy_oauth_state')?.slice(0, 20) + '…')
       console.log('Privy ready:', ready, '| authenticated:', authenticated)
       console.log('→ hook montado na raiz: fluxo será completado automaticamente')
       console.groupEnd()
