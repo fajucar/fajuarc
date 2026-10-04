@@ -20,7 +20,7 @@ export const CONSTANTS = {
   // Links
   LINKS: {
     docs: 'https://docs.arc.network',
-    github: 'https://github.com/circle/arc',
+    github: 'https://github.com/fajucar/fajuarc',
     discord: 'https://discord.gg/arc',
     twitter: 'https://twitter.com/arcnetwork',
     explorer: 'https://explorer.arc.io',
