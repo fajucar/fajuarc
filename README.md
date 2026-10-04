@@ -19,10 +19,17 @@ EVM chain where **USDC is the native gas token**.
 - **Farming.** Stake LP tokens in the FajuFarm contract.
 - **AI agent.** A chat agent built on Anthropic Claude that reads balances, sends tokens
   and schedules recurring payments. Immediate transfers are signed by the user in
-  the wallet; scheduled payments are created by the backend and run later.
-- **Scheduled payments.** A backend cron executes payments at the scheduled time. It
-  signs either from the user's own wallet, through a Privy session signer the user
-  authorizes once, or from a Circle developer-controlled wallet.
+  the wallet; scheduled payments are created by the backend and run later. The chat
+  requires signing in with Privy (email, Google or a wallet).
+- **Scheduled payments.** A backend cron executes payments at the scheduled time. They
+  are sent from the user's Privy embedded wallet, through a Privy session signer the
+  user authorizes once. External wallets such as Rabby and MetaMask cannot be used for
+  scheduled payments, because Privy only accepts session signers on embedded wallets.
+  The agent first shows a summary, and the payment is only created after the user
+  types "sim" or "yes" to confirm.
+
+  The Circle Developer-Controlled Wallets infrastructure is configured, and the backend
+  requires its credentials to start, but it is not the active payment path.
 
 ## Architecture
 
@@ -97,8 +104,9 @@ Every variable is documented in [`.env.example`](.env.example). Anything prefixe
 ## Deployment
 
 - **Frontend:** Vercel. `vercel.json` rewrites all routes to the SPA.
-- **Backend:** any Node host (currently Render). Set the variables from `.env.example`
-  in the host's dashboard. Never upload a `.env` file.
+- **Backend:** any Node host. It currently runs on Render's Free plan, so the first
+  response after the service has been idle can take about 50 seconds. Set the variables
+  from `.env.example` in the host's dashboard. Never upload a `.env` file.
 
 ## Security
 

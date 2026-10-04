@@ -419,15 +419,6 @@ export function AgentChat({ personality, walletAddress }: AgentChatProps) {
       const agentName   = agentConfig.name || 'Agente FajuARC'
       const effectiveEmail = getPrivyEmail(privyUser)
 
-      // Debug visibility into which identity is actually being sent — this is
-      // exactly the kind of mismatch (DID vs. email, pointing at different
-      // Circle wallets) that's easy to miss silently.
-      console.log('[AgentChat] wallet identity for this request:', {
-        walletAddress: effectiveWallet,
-        privyUserId:   privyUser?.id,
-        privyEmail:    effectiveEmail ?? '(none — falling back to DID for Circle wallet lookup)',
-      })
-
       // Identity (user id/email) is taken server-side from the access token
       // authFetch attaches; privyUserId/privyEmail below are ignored there.
       const resp = await authFetch('/api/agent/chat', {
