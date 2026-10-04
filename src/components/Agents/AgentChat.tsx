@@ -202,7 +202,11 @@ export function AgentChat({ personality, walletAddress }: AgentChatProps) {
   const { writeContractAsync }        = useArcWriteContract()
   const publicClient                  = usePublicClient({ chainId: ARCDEX.chainId }) // pinned to Arc
   const { prices: tokenPrices }       = useTokenPriceData()
-  const { user: privyUser }           = usePrivy()
+  // The backend only accepts a Privy access token, which exists only for an
+  // authenticated Privy session — a wallet merely connected via connectWallet
+  // has none. Gate on `authenticated`, not useArcWallet's isConnected (which
+  // is also true for connect-only wallets).
+  const { user: privyUser, ready: privyReady, authenticated, login } = usePrivy()
   const { grantSigner }               = useScheduledPaymentSigner()
 
   const [displayMessages,   setDisplayMessages]   = useState<DisplayMessage[]>([])
@@ -214,12 +218,12 @@ export function AgentChat({ personality, walletAddress }: AgentChatProps) {
   // Fetch the user's saved withdrawal address on mount
   const effectiveAddr = address ?? walletAddress
   useEffect(() => {
-    if (!effectiveAddr) return
+    if (!authenticated || !effectiveAddr) return
     authFetch(`/api/wallet/withdrawal-address/${effectiveAddr}`)
       .then(r => r.ok ? r.json() : null)
       .then(data => { if (data?.withdrawalAddress) setWithdrawalAddress(data.withdrawalAddress) })
       .catch(() => {})
-  }, [effectiveAddr])
+  }, [authenticated, effectiveAddr])
 
   // Track pending intent so only one can be active at a time
   const pendingIntentRef = useRef<{
@@ -252,8 +256,10 @@ export function AgentChat({ personality, walletAddress }: AgentChatProps) {
   // itself learns about it while the chat panel is open. Own SSE
   // connection (separate from the global toast one in useTransactionNotifications)
   // so this can inject into this component's own message list.
+  // Only with a Privy session: without a token openAuthedEventSource would
+  // keep retrying every 5s for as long as the tab is open.
   useEffect(() => {
-    if (!effectiveAddr) return
+    if (!authenticated || !effectiveAddr) return
     return openAuthedEventSource('/api/notifications/stream', { address: effectiveAddr }, (event) => {
       let payload: {
         type: 'payment-pending' | 'payment-executed' | 'payment-failed'
@@ -287,7 +293,7 @@ export function AgentChat({ personality, walletAddress }: AgentChatProps) {
         })
       }
     })
-  }, [effectiveAddr, pushDisplay, t])
+  }, [authenticated, effectiveAddr, pushDisplay, t])
 
   // ── Execute on-chain action after confirmation ────────────────────────────
   const executeAction = useCallback(async (
@@ -825,7 +831,24 @@ export function AgentChat({ personality, walletAddress }: AgentChatProps) {
         <div ref={bottomRef} />
       </div>
 
-      {/* Input bar */}
+      {/* Input bar — replaced by a sign-in prompt until there's a Privy session */}
+      {!privyReady ? (
+        <div className="flex items-center justify-center gap-2 pt-3 border-t border-slate-700/50 h-14 text-xs text-slate-400">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Loading…
+        </div>
+      ) : !authenticated ? (
+        <div className="flex items-center gap-3 pt-3 border-t border-slate-700/50">
+          <p className="flex-1 min-w-0 text-sm text-slate-300">Sign in to chat with your agent</p>
+          <button
+            type="button"
+            onClick={() => login()}
+            className="h-11 px-4 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-sm font-semibold text-white hover:opacity-90 transition-all shadow-md shadow-cyan-500/20 shrink-0"
+          >
+            Sign in
+          </button>
+        </div>
+      ) : (
       <form onSubmit={handleSubmit} className="flex items-center gap-2 pt-3 border-t border-slate-700/50">
         <input
           value={input}
@@ -842,6 +865,7 @@ export function AgentChat({ personality, walletAddress }: AgentChatProps) {
           <Send className="h-4 w-4" />
         </button>
       </form>
+      )}
     </div>
   )
 }
