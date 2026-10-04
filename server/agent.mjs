@@ -488,16 +488,16 @@ async function followupReply(anthropic, systemBlocks, history, assistantContent,
 // Falls back to a plain UTC string when no timezone was sent, or when the
 // sent value isn't a valid IANA zone (Intl throws on garbage input — a
 // malformed browser value should degrade gracefully, not 500 the request).
-function formatLocalDateTime(utcISOString, timezone) {
+function formatLocalDateTime(utcISOString, timezone, lang = 'en') {
   const date = new Date(utcISOString)
   if (timezone) {
     try {
-      const formatted = new Intl.DateTimeFormat('en-US', {
+      const formatted = new Intl.DateTimeFormat(lang === 'pt' ? 'pt-BR' : 'en-US', {
         timeZone: timezone,
         dateStyle: 'medium',
         timeStyle: 'short',
       }).format(date)
-      return `${formatted} (your local time)`
+      return lang === 'pt' ? `${formatted} (seu horário local)` : `${formatted} (your local time)`
     } catch {
       // invalid IANA string — fall through to UTC
     }
@@ -510,8 +510,14 @@ function formatLocalDateTime(utcISOString, timezone) {
 // payments alike) rather than the raw recurrenceTime string, so the
 // displayed time is correctly converted to the requester's timezone instead
 // of an unconverted "HH:mm UTC".
-function describeSchedule(p, timezone) {
-  const localTime = formatLocalDateTime(p.nextRun ?? p.scheduledFor, timezone)
+function describeSchedule(p, timezone, lang = 'en') {
+  const localTime = formatLocalDateTime(p.nextRun ?? p.scheduledFor, timezone, lang)
+  if (lang === 'pt') {
+    if (p.recurrence === 'weekly') return `toda semana (${p.recurrenceDay}), próxima em ${localTime}`
+    if (p.recurrence === 'monthly') return `todo dia ${p.recurrenceDay} do mês, próxima em ${localTime}`
+    if (p.recurrence === 'daily') return `todos os dias, próxima em ${localTime}`
+    return `em ${localTime}`
+  }
   if (p.recurrence === 'weekly') return `every week on ${p.recurrenceDay}, next at ${localTime}`
   if (p.recurrence === 'monthly') return `on day ${p.recurrenceDay} of every month, next at ${localTime}`
   if (p.recurrence === 'daily') return `every day, next at ${localTime}`
@@ -612,23 +618,91 @@ function isScheduleConfirmation(text) {
   return ['sim', 'yes'].includes(text.trim().toLowerCase().replace(/[.!]+$/, ''))
 }
 
-function describeScheduleProposal(p) {
-  const when = describeSchedule(p, p.timezone)
-  const source = p.signer === 'privy'
-    ? `from your Privy embedded wallet ${p.walletAddress}`
-    : 'from your automation wallet (created on first use — it must hold enough USDC before the scheduled time)'
+// ── Scheduling messages, pt/en ───────────────────────────────────────────────
+// Every value (amount, full address, date, payment id) is filled in by the
+// server — the model never words these. Validation reasons coming from
+// scheduledPayments.mjs (validateScheduledFor) are English-only.
+const SCHEDULE_MSGS = {
+  en: {
+    confirmTitle:  'Please confirm this scheduled payment:',
+    amount:        'Amount',
+    recipient:     'Recipient',
+    when:          'When',
+    paid:          'Paid',
+    sourcePrivy:   (addr) => `from your Privy embedded wallet ${addr}`,
+    sourceCircle:  'from your automation wallet (created on first use — it must hold enough USDC before the scheduled time)',
+    confirmFooter: 'Reply "sim" or "yes" to confirm. Any other reply cancels it. This proposal expires in 10 minutes.',
+    expired:       'That scheduled-payment proposal expired (proposals are valid for 10 minutes), so nothing was created. Ask me again to schedule it.',
+    cantSchedule:  (reason) => `I can't schedule that payment: ${reason}`,
+    noEmbedded:    "I can't schedule that payment: scheduled payments are sent from your Privy embedded wallet, and your account doesn't have one yet. Sign in again so it can be created, then try again.",
+    couldNot:      (reason) => `Couldn't schedule that payment: ${reason}`,
+    noAutomation:  'Scheduled payments need a wallet the backend can sign for automatically, and I couldn\'t set one up for this session (no linked account id). You can still send USDC immediately.',
+    scheduled:     ({ amount, to, when, id }) => `Scheduled: ${amount} USDC to ${to}, ${when}. Payment ID: ${id}.`,
+    privyNote:     (addr) => ` This will be sent from your Privy embedded wallet ${addr} at the scheduled time — you'll be asked to authorize automated payments once.`,
+    firstNote:     (addr, amount) => ` This is your first scheduled payment, so I set up a dedicated automation wallet at ${addr} that the backend signs for automatically — make sure it holds at least ${amount} USDC before the scheduled time, or the payment will fail.`,
+    circleNote:    (addr) => ` Runs from your automation wallet at ${addr} — make sure it's funded.`,
+    underfunded:   (addr, balance, amount) => ` ⚠️ Heads up: your automation wallet at ${addr} currently holds only ${balance} USDC, which is less than the ${amount} USDC needed — please top it up before the scheduled time or the payment will fail.`,
+  },
+  pt: {
+    confirmTitle:  'Confirme este pagamento agendado:',
+    amount:        'Valor',
+    recipient:     'Destinatário',
+    when:          'Quando',
+    paid:          'Pago',
+    sourcePrivy:   (addr) => `pela sua carteira embutida do Privy ${addr}`,
+    sourceCircle:  'pela sua carteira de automação (criada no primeiro uso — ela precisa ter USDC suficiente antes do horário agendado)',
+    confirmFooter: 'Responda "sim" ou "yes" para confirmar. Qualquer outra resposta cancela. Esta proposta expira em 10 minutos.',
+    expired:       'Essa proposta de pagamento agendado expirou (as propostas valem por 10 minutos), então nada foi criado. Peça de novo para agendar.',
+    cantSchedule:  (reason) => `Não consigo agendar esse pagamento: ${reason}`,
+    noEmbedded:    'Não consigo agendar esse pagamento: pagamentos agendados saem da sua carteira embutida do Privy, e sua conta ainda não tem uma. Entre de novo para que ela seja criada e tente outra vez.',
+    couldNot:      (reason) => `Não foi possível agendar esse pagamento: ${reason}`,
+    noAutomation:  'Pagamentos agendados precisam de uma carteira que o backend consiga assinar automaticamente, e não consegui criar uma para esta sessão (sem id de conta vinculada). Você ainda pode enviar USDC na hora.',
+    scheduled:     ({ amount, to, when, id }) => `Agendado: ${amount} USDC para ${to}, ${when}. ID do pagamento: ${id}.`,
+    privyNote:     (addr) => ` O envio sairá da sua carteira embutida do Privy ${addr} no horário agendado — você precisará autorizar pagamentos automáticos uma única vez.`,
+    firstNote:     (addr, amount) => ` Este é seu primeiro pagamento agendado, então criei uma carteira de automação dedicada em ${addr}, que o backend assina automaticamente — garanta que ela tenha pelo menos ${amount} USDC antes do horário agendado, ou o pagamento vai falhar.`,
+    circleNote:    (addr) => ` Sai da sua carteira de automação em ${addr} — garanta que ela tenha saldo.`,
+    underfunded:   (addr, balance, amount) => ` ⚠️ Atenção: sua carteira de automação em ${addr} tem só ${balance} USDC, menos que os ${amount} USDC necessários — adicione saldo antes do horário agendado ou o pagamento vai falhar.`,
+  },
+}
+
+const PT_HINT_WORDS = /\b(sim|n[aã]o|quero|agendar|agende|agenda|pagar|pague|pagamento|enviar|envie|mandar|mande|para|pra|todo|toda|todos|dia|semana|mes|amanha|hoje|reais|carteira|meu|minha|por favor|obrigad[oa])\b/g
+const EN_HINT_WORDS = /\b(yes|no|please|send|pay|payment|schedule|every|day|week|month|tomorrow|today|at|to|my|the|on)\b/g
+
+/**
+ * Language for the server-built scheduling messages: the `lang` the frontend
+ * sends, if any; otherwise a simple guess from the latest user message
+ * (Portuguese accents/common words); otherwise English.
+ */
+function pickScheduleLang(requested, messages) {
+  const r = typeof requested === 'string' ? requested.trim().toLowerCase() : ''
+  if (r.startsWith('pt')) return 'pt'
+  if (r.startsWith('en')) return 'en'
+
+  const text = (latestUserText(messages) ?? '').toLowerCase()
+  if (!text.trim()) return 'en'
+  if (/[áàâãéêíóôõúç]/.test(text)) return 'pt'
+  const ptHits = (text.match(PT_HINT_WORDS) ?? []).length
+  const enHits = (text.match(EN_HINT_WORDS) ?? []).length
+  return ptHits > enHits ? 'pt' : 'en'
+}
+
+function describeScheduleProposal(p, lang = 'en') {
+  const m = SCHEDULE_MSGS[lang] ?? SCHEDULE_MSGS.en
+  const when = describeSchedule(p, p.timezone, lang)
+  const source = p.signer === 'privy' ? m.sourcePrivy(p.walletAddress) : m.sourceCircle
   return [
-    'Please confirm this scheduled payment:',
-    `• Amount: ${p.amount} ${p.token}`,
-    `• Recipient: ${p.to}`,
-    `• When: ${when}`,
-    `• Paid ${source}`,
-    'Reply "sim" or "yes" to confirm. Any other reply cancels it. This proposal expires in 10 minutes.',
+    m.confirmTitle,
+    `• ${m.amount}: ${p.amount} ${p.token}`,
+    `• ${m.recipient}: ${p.to}`,
+    `• ${m.when}: ${when}`,
+    `• ${m.paid} ${source}`,
+    m.confirmFooter,
   ].join('\n')
 }
 
 /** Creates a confirmed proposal. Returns the JSON body for the chat response. */
-async function createScheduledPayment(p, privyUserId, privyEmail) {
+async function createScheduledPayment(p, privyUserId, privyEmail, lang = 'en') {
+  const m = SCHEDULE_MSGS[lang] ?? SCHEDULE_MSGS.en
   const { to, amount, token, walletAddress, timezone } = p
   const schedule = {
     scheduledFor:   p.scheduledFor,
@@ -655,14 +729,14 @@ async function createScheduledPayment(p, privyUserId, privyEmail) {
       })
       return {
         type: 'text',
-        message: `Scheduled: ${amount} USDC to ${to}, ${describeSchedule(payment, timezone)}. Payment ID: ${payment.id}. This will be sent from your Privy embedded wallet ${walletAddress} at the scheduled time — you'll be asked to authorize automated payments once.`,
+        message: m.scheduled({ amount, to, when: describeSchedule(payment, timezone, lang), id: payment.id }) + m.privyNote(walletAddress),
         // needsSessionSigner tells the frontend to call addSessionSigners
         // (one-time consent popup) for this wallet.
         needsSessionSigner: true,
         sessionSignerAddress: walletAddress,
       }
     } catch (err) {
-      return { type: 'text', message: `Couldn't schedule that payment: ${err.message}` }
+      return { type: 'text', message: m.couldNot(err.message) }
     }
   }
 
@@ -681,7 +755,7 @@ async function createScheduledPayment(p, privyUserId, privyEmail) {
     }
 
     if (!owner?.walletId) {
-      return { type: 'text', message: 'Scheduled payments need a wallet the backend can sign for automatically, and I couldn\'t set one up for this session (no linked account id). You can still send USDC immediately.' }
+      return { type: 'text', message: m.noAutomation }
     }
 
     const payment = await createPayment({
@@ -698,16 +772,15 @@ async function createScheduledPayment(p, privyUserId, privyEmail) {
     // null on any API/network hiccup, in which case we skip the warning.
     const usdcBalance = await getWalletUsdcBalance(owner.walletId)
     const underfunded = usdcBalance !== null && usdcBalance < Number(amount)
-    const fundingNote = underfunded
-      ? ` ⚠️ Heads up: your automation wallet at ${owner.address} currently holds only ${usdcBalance} USDC, which is less than the ${amount} USDC needed — please top it up before the scheduled time or the payment will fail.`
-      : ''
+    const fundingNote = underfunded ? m.underfunded(owner.address, usdcBalance, amount) : ''
 
-    const message = justProvisioned
-      ? `Scheduled: ${amount} USDC to ${to}, ${describeSchedule(payment, timezone)}. Payment ID: ${payment.id}. This is your first scheduled payment, so I set up a dedicated automation wallet at ${owner.address} that the backend signs for automatically — make sure it holds at least ${amount} USDC before the scheduled time, or the payment will fail.${fundingNote}`
-      : `Scheduled: ${amount} USDC to ${to}, ${describeSchedule(payment, timezone)}. Payment ID: ${payment.id}. Runs from your automation wallet at ${owner.address} — make sure it's funded.${fundingNote}`
+    const scheduled = m.scheduled({ amount, to, when: describeSchedule(payment, timezone, lang), id: payment.id })
+    const message = scheduled
+      + (justProvisioned ? m.firstNote(owner.address, amount) : m.circleNote(owner.address))
+      + fundingNote
     return { type: 'text', message }
   } catch (err) {
-    return { type: 'text', message: `Couldn't schedule that payment: ${err.message}` }
+    return { type: 'text', message: m.couldNot(err.message) }
   }
 }
 
@@ -718,7 +791,7 @@ router.post('/chat', async (req, res) => {
     return res.status(500).json({ error: 'ANTHROPIC_API_KEY não configurada no .env' })
   }
 
-  const { messages = [], personality = 'explorer', walletAddress, withdrawalAddress, agentName, timezone } = req.body
+  const { messages = [], personality = 'explorer', walletAddress, withdrawalAddress, agentName, timezone, lang: requestedLang } = req.body
 
   // Identity comes ONLY from the verified Privy access token (index.mjs mounts
   // this router behind requireAuth) — any privyUserId/privyEmail in the body
@@ -738,11 +811,13 @@ router.post('/chat', async (req, res) => {
   // "yes" requests can't both pick up the same proposal and create it twice.
   const proposal = pendingSchedules.get(privyUserId)
   pendingSchedules.delete(privyUserId)
+  // Language of the server-built scheduling messages (see pickScheduleLang).
+  const scheduleLang = pickScheduleLang(requestedLang, messages)
   if (proposal && isScheduleConfirmation(latestUserText(messages))) {
     if (proposal.expiresAt <= Date.now()) {
-      return res.json({ type: 'text', message: 'That scheduled-payment proposal expired (proposals are valid for 10 minutes), so nothing was created. Ask me again to schedule it.' })
+      return res.json({ type: 'text', message: SCHEDULE_MSGS[scheduleLang].expired })
     }
-    return res.json(await createScheduledPayment(proposal, privyUserId, privyEmail))
+    return res.json(await createScheduledPayment(proposal, privyUserId, privyEmail, scheduleLang))
   }
 
   const name           = (agentName || 'Agente FajuARC').trim()
@@ -875,7 +950,7 @@ router.post('/chat', async (req, res) => {
         } else if (!args.scheduledFor && !args.recurrence) {
           summary = 'I need either a specific date/time or a recurrence (daily, weekly, monthly) to schedule this payment.'
         } else if (signer === 'privy' && !embeddedAddress) {
-          return res.json({ type: 'text', message: "I can't schedule that payment: scheduled payments are sent from your Privy embedded wallet, and your account doesn't have one yet. Sign in again so it can be created, then try again." })
+          return res.json({ type: 'text', message: SCHEDULE_MSGS[scheduleLang].noEmbedded })
         } else if (signer !== 'privy' && !walletAddress) {
           summary = "I couldn't find your wallet address. Connect your wallet and try again."
         } else {
@@ -884,7 +959,7 @@ router.post('/chat', async (req, res) => {
           // to the user verbatim — no proposal is stored.
           const dateError = args.recurrence ? null : validateScheduledFor(args.scheduledFor)
           if (dateError) {
-            return res.json({ type: 'text', message: `I can't schedule that payment: ${dateError}` })
+            return res.json({ type: 'text', message: SCHEDULE_MSGS[scheduleLang].cantSchedule(dateError) })
           }
 
           const schedule = {
@@ -915,7 +990,7 @@ router.post('/chat', async (req, res) => {
               expiresAt: Date.now() + SCHEDULE_PROPOSAL_TTL_MS,
             }
             pendingSchedules.set(privyUserId, proposal)
-            return res.json({ type: 'text', message: describeScheduleProposal(proposal) })
+            return res.json({ type: 'text', message: describeScheduleProposal(proposal, scheduleLang) })
           }
         }
 
