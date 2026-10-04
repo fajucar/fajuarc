@@ -3,7 +3,7 @@
 Stablecoin payments, swaps and an AI payments agent on [Arc](https://arc.network), the
 EVM chain where **USDC is the native gas token**.
 
-**Live app:** https://fajucar211225.vercel.app
+**Live app:** https://www.fajucar.xyz
 
 > ⚠️ FajuARC runs on **Arc Mainnet with real funds**. The code is provided as-is,
 > without warranty, and has not been independently audited. See [SECURITY.md](SECURITY.md).
@@ -11,8 +11,8 @@ EVM chain where **USDC is the native gas token**.
 ## Features
 
 - **Social login with embedded wallets.** Users sign in with email or a social
-  account through [Privy](https://privy.io) and get an embedded EVM wallet. MetaMask
-  and WalletConnect are supported as well.
+  account through [Privy](https://privy.io) and get an embedded EVM wallet. MetaMask,
+  Rabby and WalletConnect are supported as well.
 - **P2P payments.** Send USDC and EURC, and share payment links (`/pay`) with QR codes.
 - **DEX.** A Uniswap V2 fork (swap, add and remove liquidity, manage positions), plus
   Uniswap V3 pools on networks where V3 is deployed.
