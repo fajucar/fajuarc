@@ -16,7 +16,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { fetchTokenTransfers } from './arcscan.mjs'
 import { findUserByAddress, findUserById, findUserByEmail } from './walletsDb.mjs'
 import { getOrCreateWallet, getWalletUsdcBalance } from './circle.mjs'
-import { createPayment, listPayments, cancelPayment } from './scheduledPayments.mjs'
+import { createPayment, listPayments, cancelPayment, computeNextRun } from './scheduledPayments.mjs'
 import { ownsAddress, ownsCircleEntry, FORBIDDEN_WALLET } from './auth.mjs'
 
 const router = Router()
@@ -66,7 +66,7 @@ const TOOLS = [
   },
   {
     name: 'schedulePayment',
-    description: 'Schedule a USDC payment to be sent automatically in the future — either once at a specific date/time, or on a recurring basis (daily, weekly, or monthly). Use this INSTEAD OF sendUSDC whenever the user mentions a future date/time or a recurring interval (e.g. "on the 15th", "next Friday", "every week", "every month"). The backend needs a wallet it can sign for headlessly to execute this later — it will automatically set one up on first use if needed, separate from the user\'s regular wallet, and will tell the user to fund it.',
+    description: 'Schedule a USDC payment to be sent automatically in the future — either once at a specific date/time, or on a recurring basis (daily, weekly, or monthly). Use this INSTEAD OF sendUSDC whenever the user mentions a future date/time or a recurring interval (e.g. "on the 15th", "next Friday", "every week", "every month"). The backend needs a wallet it can sign for headlessly to execute this later — it will automatically set one up on first use if needed, separate from the user\'s regular wallet, and will tell the user to fund it. Call it directly once you have the details: the server itself shows the user a summary and asks them to confirm, so do not ask for confirmation yourself.',
     input_schema: {
       type: 'object',
       properties: {
@@ -460,9 +460,11 @@ function capHistory(history, max = MAX_HISTORY_MESSAGES) {
 }
 
 // ── Ask Claude to phrase a server-resolved tool result in character ──────────
-// Shared by every tool that's resolved directly on the backend (no client
-// confirmation step) — getTransactionHistory, schedulePayment,
-// listScheduledPayments, cancelScheduledPayment.
+// Shared by the tools resolved directly on the backend without a client
+// confirmation card — getTransactionHistory, listScheduledPayments,
+// cancelScheduledPayment, and schedulePayment's validation errors. A valid
+// schedulePayment request does NOT go through here: its confirmation prompt
+// and its result are built by the server (see pendingSchedules below).
 async function followupReply(anthropic, systemBlocks, history, assistantContent, toolUseId, summary) {
   const followupMessages = [
     ...history,
@@ -578,6 +580,133 @@ async function provisionAutomationWallet(privyUserId, email) {
   return getOrCreateWallet(key, normalizedEmail)
 }
 
+// ── Scheduled payments need a typed "yes" before they're created ─────────────
+// schedulePayment only stores a proposal here and replies with a
+// server-built summary (amount, full recipient, schedule) — the model never
+// words it. The user's NEXT message decides: exactly "sim"/"yes" creates the
+// payment from the stored params; anything else discards it. Keyed by the
+// Privy user id from the verified access token (req.auth.userId), never by a
+// request-body field. One pending proposal per user; a new one replaces it.
+// In-memory is enough: the backend is a single long-running Express process,
+// and a restart only means the user has to ask again.
+const SCHEDULE_PROPOSAL_TTL_MS = 10 * 60_000
+const pendingSchedules = new Map()
+
+/** Text of the latest message if it's a plain user text message, else null. */
+function latestUserText(messages) {
+  const last = messages[messages.length - 1]
+  if (last?.role !== 'user') return null
+  if (typeof last.content === 'string') return last.content
+  if (Array.isArray(last.content) && last.content.length > 0 && last.content.every(b => b?.type === 'text')) {
+    return last.content.map(b => b.text).join(' ')
+  }
+  return null
+}
+
+function isScheduleConfirmation(text) {
+  if (typeof text !== 'string') return false
+  return ['sim', 'yes'].includes(text.trim().toLowerCase().replace(/[.!]+$/, ''))
+}
+
+function describeScheduleProposal(p) {
+  const when = describeSchedule(p, p.timezone)
+  const source = p.signer === 'privy'
+    ? 'from your own wallet'
+    : 'from your automation wallet (created on first use — it must hold enough USDC before the scheduled time)'
+  return [
+    'Please confirm this scheduled payment:',
+    `• Amount: ${p.amount} ${p.token}`,
+    `• Recipient: ${p.to}`,
+    `• When: ${when}`,
+    `• Paid ${source}`,
+    'Reply "sim" or "yes" to confirm. Any other reply cancels it. This proposal expires in 10 minutes.',
+  ].join('\n')
+}
+
+/** Creates a confirmed proposal. Returns the JSON body for the chat response. */
+async function createScheduledPayment(p, privyUserId, privyEmail) {
+  const { to, amount, token, walletAddress, timezone } = p
+  const schedule = {
+    scheduledFor:   p.scheduledFor,
+    recurrence:     p.recurrence,
+    recurrenceDay:  p.recurrenceDay,
+    recurrenceTime: p.recurrenceTime,
+  }
+
+  if (p.signer === 'privy') {
+    // ── Privy session-signer path ──────────────────────────────────────────
+    // The scheduled payment is sent FROM the user's own Privy embedded
+    // wallet (walletAddress) — no Circle/bot wallet involved. The user must
+    // grant our key quorum as a session signer once; we flag that to the
+    // frontend via needsSessionSigner so it can prompt consent.
+    try {
+      const payment = await createPayment({
+        walletAddress:  walletAddress,   // owner/identity = user's wallet
+        notifyAddress:  walletAddress,
+        senderAddress:  walletAddress,   // funds source = user's wallet
+        recipient:      to,
+        amount,
+        token,
+        ...schedule,
+      })
+      return {
+        type: 'text',
+        message: `Scheduled: ${amount} USDC to ${to}, ${describeSchedule(payment, timezone)}. Payment ID: ${payment.id}. This will be sent from your own wallet at the scheduled time — you'll be asked to authorize automated payments once.`,
+        // needsSessionSigner tells the frontend to call addSessionSigners
+        // (one-time consent popup) for this wallet.
+        needsSessionSigner: true,
+        sessionSignerAddress: walletAddress,
+      }
+    } catch (err) {
+      return { type: 'text', message: `Couldn't schedule that payment: ${err.message}` }
+    }
+  }
+
+  try {
+    // The wallet the user is chatting from (usually a Privy embedded wallet)
+    // can't itself be Circle-custodied — a scheduled payment needs a wallet
+    // the backend can sign for headlessly. Reuse one already on file for
+    // this identity if there is one; otherwise provision a dedicated
+    // automation wallet on the spot, keyed by the stable Privy user id (not
+    // the address).
+    let owner = await resolveCircleOwner(walletAddress, privyUserId, privyEmail)
+    let justProvisioned = false
+    if (!owner?.walletId) {
+      owner = await provisionAutomationWallet(privyUserId, privyEmail)
+      justProvisioned = !!owner
+    }
+
+    if (!owner?.walletId) {
+      return { type: 'text', message: 'Scheduled payments need a wallet the backend can sign for automatically, and I couldn\'t set one up for this session (no linked account id). You can still send USDC immediately.' }
+    }
+
+    const payment = await createPayment({
+      walletAddress:  owner.address,
+      notifyAddress:  walletAddress,
+      recipient:      to,
+      amount,
+      token,
+      ...schedule,
+    })
+
+    // Funding check (additive — does not block scheduling, since funds can
+    // still arrive before the scheduled time). getWalletUsdcBalance returns
+    // null on any API/network hiccup, in which case we skip the warning.
+    const usdcBalance = await getWalletUsdcBalance(owner.walletId)
+    const underfunded = usdcBalance !== null && usdcBalance < Number(amount)
+    const fundingNote = underfunded
+      ? ` ⚠️ Heads up: your automation wallet at ${owner.address} currently holds only ${usdcBalance} USDC, which is less than the ${amount} USDC needed — please top it up before the scheduled time or the payment will fail.`
+      : ''
+
+    const message = justProvisioned
+      ? `Scheduled: ${amount} USDC to ${to}, ${describeSchedule(payment, timezone)}. Payment ID: ${payment.id}. This is your first scheduled payment, so I set up a dedicated automation wallet at ${owner.address} that the backend signs for automatically — make sure it holds at least ${amount} USDC before the scheduled time, or the payment will fail.${fundingNote}`
+      : `Scheduled: ${amount} USDC to ${to}, ${describeSchedule(payment, timezone)}. Payment ID: ${payment.id}. Runs from your automation wallet at ${owner.address} — make sure it's funded.${fundingNote}`
+    return { type: 'text', message }
+  } catch (err) {
+    return { type: 'text', message: `Couldn't schedule that payment: ${err.message}` }
+  }
+}
+
 // ── Route ─────────────────────────────────────────────────────────────────────
 router.post('/chat', async (req, res) => {
   const apiKey = (process.env.ANTHROPIC_API_KEY || '').trim()
@@ -598,6 +727,18 @@ router.post('/chat', async (req, res) => {
 
   if (!Array.isArray(messages) || messages.length === 0) {
     return res.status(400).json({ error: '"messages" array é obrigatório' })
+  }
+
+  // ── Pending schedulePayment proposal: this message confirms or discards it ─
+  // get + delete run synchronously (no await in between), so two concurrent
+  // "yes" requests can't both pick up the same proposal and create it twice.
+  const proposal = pendingSchedules.get(privyUserId)
+  pendingSchedules.delete(privyUserId)
+  if (proposal && isScheduleConfirmation(latestUserText(messages))) {
+    if (proposal.expiresAt <= Date.now()) {
+      return res.json({ type: 'text', message: 'That scheduled-payment proposal expired (proposals are valid for 10 minutes), so nothing was created. Ask me again to schedule it.' })
+    }
+    return res.json(await createScheduledPayment(proposal, privyUserId, privyEmail))
   }
 
   const name           = (agentName || 'Agente FajuARC').trim()
@@ -701,9 +842,12 @@ router.post('/chat', async (req, res) => {
         return res.json({ type: 'tx-history', message, items, lang })
       }
 
-      // ── Scheduled payments: resolved server-side, no client confirmation ────
-      // (nothing is signed now — the payment fires later via the backend
-      // scheduler, so there's no on-chain action for the user to approve here)
+      // ── Scheduled payments: validate and PROPOSE, never create here ────────
+      // Nothing is signed now (the payment fires later via the backend
+      // scheduler), so there's no client confirmation card. Instead the server
+      // stores a proposal and replies with its own summary; the payment is
+      // only created if the user's next message is exactly "sim"/"yes" (see
+      // pendingSchedules and the check at the top of this route).
       if (name === 'schedulePayment') {
         const to     = (args.to ?? '').trim()
         const amount = (args.amount ?? '').toString().trim()
@@ -720,92 +864,34 @@ router.post('/chat', async (req, res) => {
           summary = 'I need either a specific date/time or a recurrence (daily, weekly, monthly) to schedule this payment.'
         } else if (!walletAddress) {
           summary = "I couldn't find your wallet address. Connect your wallet and try again."
-        } else if ((process.env.AUTOMATION_SIGNER || 'viem').trim().toLowerCase() === 'privy') {
-          // ── Privy session-signer path ────────────────────────────────────
-          // The scheduled payment is sent FROM the user's own Privy embedded
-          // wallet (walletAddress) — no Circle/bot wallet involved. The user
-          // must grant our key quorum as a session signer once; we flag that
-          // to the frontend via needsSessionSigner so it can prompt consent.
-          try {
-            const payment = await createPayment({
-              walletAddress:  walletAddress,   // owner/identity = user's wallet
-              notifyAddress:  walletAddress,
-              senderAddress:  walletAddress,   // funds source = user's wallet
-              recipient:      to,
-              amount,
-              token,
-              scheduledFor:   args.scheduledFor,
-              recurrence:     args.recurrence,
-              recurrenceDay:  args.recurrenceDay,
-              recurrenceTime: args.recurrenceTime,
-            })
-            // IMPORTANT: instruct the model to preserve the exact scheduled
-            // time verbatim — otherwise it tends to paraphrase it as "in 2
-            // minutes" / "same time", dropping the concrete clock time the
-            // user asked to see (e.g. "09:55").
-            const exactWhen = describeSchedule(payment, timezone)
-            const summaryText = `Scheduled: ${amount} USDC to ${shortAddr(to)}, ${exactWhen}. Payment ID: ${payment.id}. This will be sent from your own wallet at the scheduled time — you'll be asked to authorize automated payments once. When you reply, ALWAYS state the exact scheduled clock time verbatim ("${exactWhen}") — do not paraphrase it as a relative time like "in 2 minutes".`
-            const message = await followupReply(anthropic, systemBlocks, history, response.content, toolBlock.id, summaryText)
-            // needsSessionSigner tells the frontend to call addSessionSigners
-            // (one-time consent popup) for this wallet.
-            return res.json({
-              type: 'text',
-              message,
-              needsSessionSigner: true,
-              sessionSignerAddress: walletAddress,
-            })
-          } catch (err) {
-            const message = await followupReply(anthropic, systemBlocks, history, response.content, toolBlock.id, `Couldn't schedule that payment: ${err.message}`)
-            return res.json({ type: 'text', message })
-          }
         } else {
+          const schedule = {
+            scheduledFor:   args.scheduledFor,
+            recurrence:     args.recurrence,
+            recurrenceDay:  args.recurrenceDay,
+            recurrenceTime: args.recurrenceTime,
+          }
+          let nextRun
           try {
-            // The wallet the user is chatting from (usually a Privy embedded
-            // wallet) can't itself be Circle-custodied — a scheduled payment
-            // needs a wallet the backend can sign for headlessly. Reuse one
-            // already on file for this identity if there is one; otherwise
-            // provision a dedicated automation wallet on the spot, keyed by
-            // the stable Privy user id (not the address).
-            let owner = await resolveCircleOwner(walletAddress, privyUserId, privyEmail)
-            let justProvisioned = false
-            if (!owner?.walletId) {
-              owner = await provisionAutomationWallet(privyUserId, privyEmail)
-              justProvisioned = !!owner
-            }
-
-            if (!owner?.walletId) {
-              summary = 'Scheduled payments need a wallet the backend can sign for automatically, and I couldn\'t set one up for this session (no linked account id). You can still send USDC immediately with sendUSDC.'
-            } else {
-              const payment = await createPayment({
-                walletAddress:  owner.address,
-                notifyAddress:  walletAddress,
-                recipient:      to,
-                amount,
-                token,
-                scheduledFor:   args.scheduledFor,
-                recurrence:     args.recurrence,
-                recurrenceDay:  args.recurrenceDay,
-                recurrenceTime: args.recurrenceTime,
-              })
-
-              // Funding check (additive — does not block scheduling, since
-              // funds can still arrive before the scheduled time). Reads the
-              // automation wallet's current USDC balance so we can warn the
-              // user up-front instead of letting the scheduler fail silently
-              // later. getWalletUsdcBalance returns null on any API/network
-              // hiccup, in which case we simply skip the warning.
-              const usdcBalance = await getWalletUsdcBalance(owner.walletId)
-              const underfunded = usdcBalance !== null && usdcBalance < Number(amount)
-              const fundingNote = underfunded
-                ? ` ⚠️ Heads up: your automation wallet at ${owner.address} currently holds only ${usdcBalance} USDC, which is less than the ${amount} USDC needed — please top it up before the scheduled time or the payment will fail.`
-                : ''
-
-              summary = justProvisioned
-                ? `Scheduled: ${amount} USDC to ${shortAddr(to)}, ${describeSchedule(payment, timezone)}. Payment ID: ${payment.id}. IMPORTANT: this is your first scheduled payment, so I set up a dedicated automation wallet at ${owner.address} that the backend signs for automatically — make sure it holds at least ${amount} USDC before the scheduled time, or the payment will fail.${fundingNote}`
-                : `Scheduled: ${amount} USDC to ${shortAddr(to)}, ${describeSchedule(payment, timezone)}. Payment ID: ${payment.id}. Runs from your automation wallet at ${owner.address} — make sure it's funded.${fundingNote}`
-            }
+            nextRun = computeNextRun(schedule)
           } catch (err) {
             summary = `Couldn't schedule that payment: ${err.message}`
+          }
+
+          if (nextRun) {
+            const proposal = {
+              to,
+              amount,
+              token,
+              ...schedule,
+              nextRun,
+              walletAddress,
+              timezone,
+              signer:    (process.env.AUTOMATION_SIGNER || 'viem').trim().toLowerCase() === 'privy' ? 'privy' : 'circle',
+              expiresAt: Date.now() + SCHEDULE_PROPOSAL_TTL_MS,
+            }
+            pendingSchedules.set(privyUserId, proposal)
+            return res.json({ type: 'text', message: describeScheduleProposal(proposal) })
           }
         }
 
