@@ -70,6 +70,36 @@ function parseTimeOfDay(time) {
   return { hours, minutes }
 }
 
+// ISO 8601 datetime that ends in an explicit offset ("Z" or ±hh:mm). Without
+// one, `new Date()` would read it in the server process's own timezone.
+const ISO_WITH_OFFSET = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,3})?)?(Z|[+-]\d{2}:\d{2})$/i
+
+/**
+ * Validates a one-time `scheduledFor` before a payment is proposed or
+ * created. Returns null when valid, otherwise a user-facing English message.
+ * A past date must never get through: the scheduler would pick it up as due
+ * and send it immediately.
+ */
+export function validateScheduledFor(scheduledFor, now = new Date()) {
+  const value = typeof scheduledFor === 'string' ? scheduledFor.trim() : ''
+  if (!ISO_WITH_OFFSET.test(value)) {
+    return `The scheduled date/time "${scheduledFor ?? ''}" must be an ISO 8601 datetime with an explicit timezone offset, ending in "Z" (UTC) or like "-03:00".`
+  }
+  const when = new Date(value)
+  if (Number.isNaN(when.getTime())) {
+    return `The scheduled date/time "${value}" is not a valid date.`
+  }
+  if (when <= now) {
+    return `The scheduled date/time ${when.toISOString()} is in the past (it is now ${now.toISOString()}). Please choose a future date and time.`
+  }
+  const maxDate = new Date(now)
+  maxDate.setUTCFullYear(maxDate.getUTCFullYear() + 1)
+  if (when > maxDate) {
+    return `The scheduled date/time ${when.toISOString()} is more than 1 year from now (it is now ${now.toISOString()}). Scheduled payments can be at most 1 year ahead.`
+  }
+  return null
+}
+
 /**
  * Compute the next fire time (ISO string) strictly after `fromDate`.
  * One-time payments just use `scheduledFor` as-is (only called once, at creation).
@@ -135,6 +165,12 @@ export async function listPayments(walletAddress) {
 }
 
 export async function createPayment({ walletAddress, notifyAddress, senderAddress, recipient, amount, token, scheduledFor, recurrence, recurrenceDay, recurrenceTime }) {
+  // Re-checked here, not only at proposal time: a date that was valid when
+  // proposed can be in the past by the time the user confirms.
+  if (!recurrence) {
+    const invalid = validateScheduledFor(scheduledFor)
+    if (invalid) throw new Error(invalid)
+  }
   const nextRun = computeNextRun({ scheduledFor, recurrence, recurrenceDay, recurrenceTime })
   const payment = {
     id:             randomUUID(),

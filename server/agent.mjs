@@ -16,7 +16,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { fetchTokenTransfers } from './arcscan.mjs'
 import { findUserByAddress, findUserById, findUserByEmail } from './walletsDb.mjs'
 import { getOrCreateWallet, getWalletUsdcBalance } from './circle.mjs'
-import { createPayment, listPayments, cancelPayment, computeNextRun } from './scheduledPayments.mjs'
+import { createPayment, listPayments, cancelPayment, computeNextRun, validateScheduledFor } from './scheduledPayments.mjs'
 import { ownsAddress, ownsCircleEntry, FORBIDDEN_WALLET } from './auth.mjs'
 
 const router = Router()
@@ -251,6 +251,7 @@ Arc Mainnet chainId: 5042. Native gas token: USDC. Available tokens: USDC, EURC,
 When the user asks you to perform an on-chain action, always use the appropriate tool rather than just describing it.
 You can now look up the user's recent on-chain transaction history (sends, receives, swaps, mints) using the getTransactionHistory tool.
 You can also schedule future or recurring USDC payments with schedulePayment, list them with listScheduledPayments, and cancel them with cancelScheduledPayment. Use schedulePayment instead of sendUSDC whenever the user mentions a future date/time or a recurring interval (e.g. "every Friday", "on the 15th", "next month").
+Once you have the amount, recipient and date, call schedulePayment directly — never ask the user to confirm it yourself; the server shows them a summary and asks for their confirmation.
 ${introInstruction(n, isFirstMessage)}
 ${languageInstruction()}
 ${balanceInstruction()}
@@ -266,6 +267,7 @@ Arc Mainnet chainId: 5042. Native gas token: USDC. Available tokens: USDC, EURC,
 When the user asks you to perform an on-chain action, always use the appropriate tool rather than just describing it.
 You can now look up the user's recent on-chain transaction history (sends, receives, swaps, mints) using the getTransactionHistory tool.
 You can also schedule future or recurring USDC payments with schedulePayment, list them with listScheduledPayments, and cancel them with cancelScheduledPayment. Use schedulePayment instead of sendUSDC whenever the user mentions a future date/time or a recurring interval (e.g. "every Friday", "on the 15th", "next month").
+Once you have the amount, recipient and date, call schedulePayment directly — never ask the user to confirm it yourself; the server shows them a summary and asks for their confirmation.
 ${introInstruction(n, isFirstMessage)}
 ${languageInstruction()}
 ${balanceInstruction()}
@@ -281,6 +283,7 @@ Arc Mainnet chainId: 5042. Native gas token: USDC.
 When the user asks you to perform an on-chain action, always use the appropriate tool rather than just describing it.
 You can now look up the user's recent on-chain transaction history (sends, receives, swaps, mints) using the getTransactionHistory tool.
 You can also schedule future or recurring USDC payments with schedulePayment, list them with listScheduledPayments, and cancel them with cancelScheduledPayment. Use schedulePayment instead of sendUSDC whenever the user mentions a future date/time or a recurring interval (e.g. "every Friday", "on the 15th", "next month").
+Once you have the amount, recipient and date, call schedulePayment directly — never ask the user to confirm it yourself; the server shows them a summary and asks for their confirmation.
 ${introInstruction(n, isFirstMessage)}
 ${languageInstruction()}
 ${balanceInstruction()}
@@ -296,6 +299,7 @@ Arc Mainnet chainId: 5042. Native gas token: USDC.
 When the user asks you to perform an on-chain action, always use the appropriate tool rather than just describing it.
 You can now look up the user's recent on-chain transaction history (sends, receives, swaps, mints) using the getTransactionHistory tool.
 You can also schedule future or recurring USDC payments with schedulePayment, list them with listScheduledPayments, and cancel them with cancelScheduledPayment. Use schedulePayment instead of sendUSDC whenever the user mentions a future date/time or a recurring interval (e.g. "every Friday", "on the 15th", "next month").
+Once you have the amount, recipient and date, call schedulePayment directly — never ask the user to confirm it yourself; the server shows them a summary and asks for their confirmation.
 ${introInstruction(n, isFirstMessage)}
 ${languageInstruction()}
 ${balanceInstruction()}
@@ -611,7 +615,7 @@ function isScheduleConfirmation(text) {
 function describeScheduleProposal(p) {
   const when = describeSchedule(p, p.timezone)
   const source = p.signer === 'privy'
-    ? 'from your own wallet'
+    ? `from your Privy embedded wallet ${p.walletAddress}`
     : 'from your automation wallet (created on first use — it must hold enough USDC before the scheduled time)'
   return [
     'Please confirm this scheduled payment:',
@@ -651,7 +655,7 @@ async function createScheduledPayment(p, privyUserId, privyEmail) {
       })
       return {
         type: 'text',
-        message: `Scheduled: ${amount} USDC to ${to}, ${describeSchedule(payment, timezone)}. Payment ID: ${payment.id}. This will be sent from your own wallet at the scheduled time — you'll be asked to authorize automated payments once.`,
+        message: `Scheduled: ${amount} USDC to ${to}, ${describeSchedule(payment, timezone)}. Payment ID: ${payment.id}. This will be sent from your Privy embedded wallet ${walletAddress} at the scheduled time — you'll be asked to authorize automated payments once.`,
         // needsSessionSigner tells the frontend to call addSessionSigners
         // (one-time consent popup) for this wallet.
         needsSessionSigner: true,
@@ -852,6 +856,14 @@ router.post('/chat', async (req, res) => {
         const to     = (args.to ?? '').trim()
         const amount = (args.amount ?? '').toString().trim()
         const token  = args.token || 'USDC'
+        // Diagnostic only: the raw scheduledFor the model produced.
+        console.log('[Agent] schedulePayment scheduledFor from model:', JSON.stringify(args.scheduledFor ?? null))
+
+        // Privy signer: the payment is sent from the user's Privy EMBEDDED
+        // wallet — the only kind a session signer can be added to. It comes
+        // from the verified identity (req.auth), never from the request body.
+        const signer = (process.env.AUTOMATION_SIGNER || 'viem').trim().toLowerCase() === 'privy' ? 'privy' : 'circle'
+        const embeddedAddress = req.auth.embeddedAddresses?.[0]
 
         let summary
         if (!/^0x[0-9a-fA-F]{40}$/.test(to)) {
@@ -862,9 +874,19 @@ router.post('/chat', async (req, res) => {
           summary = 'Scheduled payments only support USDC today.'
         } else if (!args.scheduledFor && !args.recurrence) {
           summary = 'I need either a specific date/time or a recurrence (daily, weekly, monthly) to schedule this payment.'
-        } else if (!walletAddress) {
+        } else if (signer === 'privy' && !embeddedAddress) {
+          return res.json({ type: 'text', message: "I can't schedule that payment: scheduled payments are sent from your Privy embedded wallet, and your account doesn't have one yet. Sign in again so it can be created, then try again." })
+        } else if (signer !== 'privy' && !walletAddress) {
           summary = "I couldn't find your wallet address. Connect your wallet and try again."
         } else {
+          // One-time dates are validated by the server (explicit offset, in
+          // the future, at most 1 year ahead) and the exact reason goes back
+          // to the user verbatim — no proposal is stored.
+          const dateError = args.recurrence ? null : validateScheduledFor(args.scheduledFor)
+          if (dateError) {
+            return res.json({ type: 'text', message: `I can't schedule that payment: ${dateError}` })
+          }
+
           const schedule = {
             scheduledFor:   args.scheduledFor,
             recurrence:     args.recurrence,
@@ -885,9 +907,11 @@ router.post('/chat', async (req, res) => {
               token,
               ...schedule,
               nextRun,
-              walletAddress,
+              // privy: becomes walletAddress, senderAddress and
+              // sessionSignerAddress in createScheduledPayment.
+              walletAddress: signer === 'privy' ? embeddedAddress : walletAddress,
               timezone,
-              signer:    (process.env.AUTOMATION_SIGNER || 'viem').trim().toLowerCase() === 'privy' ? 'privy' : 'circle',
+              signer,
               expiresAt: Date.now() + SCHEDULE_PROPOSAL_TTL_MS,
             }
             pendingSchedules.set(privyUserId, proposal)

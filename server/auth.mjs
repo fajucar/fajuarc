@@ -83,6 +83,9 @@ function buildIdentity(user) {
   const emails = new Set()
   const googleSubjects = new Set()
   const addresses = new Set()
+  // Privy embedded wallets only (not external wallets like Rabby/MetaMask) —
+  // the only ones a Privy session signer can be added to.
+  const embeddedAddresses = []
   for (const acc of user?.linked_accounts ?? []) {
     if (acc.type === 'email' && acc.address) emails.add(acc.address.toLowerCase())
     if (acc.type === 'google_oauth') {
@@ -92,12 +95,16 @@ function buildIdentity(user) {
     if ((acc.type === 'wallet' && acc.chain_type === 'ethereum') || acc.type === 'smart_wallet') {
       if (acc.address) addresses.add(acc.address.toLowerCase())
     }
+    if (acc.type === 'wallet' && acc.chain_type === 'ethereum' && acc.wallet_client_type === 'privy' && acc.address) {
+      const addr = acc.address.toLowerCase()
+      if (!embeddedAddresses.includes(addr)) embeddedAddresses.push(addr)
+    }
   }
   // Primary email: the email login account first, then Google's.
   const emailAcc  = user?.linked_accounts?.find(a => a.type === 'email')
   const googleAcc = user?.linked_accounts?.find(a => a.type === 'google_oauth')
   const primaryEmail = (emailAcc?.address ?? googleAcc?.email ?? '').toLowerCase() || null
-  return { userId: user.id, primaryEmail, emails, googleSubjects, addresses }
+  return { userId: user.id, primaryEmail, emails, googleSubjects, addresses, embeddedAddresses }
 }
 
 async function getIdentity(userId) {
