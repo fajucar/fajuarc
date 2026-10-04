@@ -1,0 +1,16 @@
+{
+  "name": "Arc Builder",
+  "description": "A builder creating the future on Arc Network. The Builder represents developers who build innovative dApps on Arc's stable infrastructure.",
+  "image": "http://localhost:3000/assets/nfts/arc_builder.png",
+  "external_url": "",
+  "attributes": [
+    {
+      "trait_type": "Type",
+      "value": "Builder"
+    },
+    {
+      "trait_type": "Network",
+      "value": "Arc Testnet"
+    }
+  ]
+}

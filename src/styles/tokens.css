@@ -1,0 +1,81 @@
+/* =============================================
+   FAJUARC — ICE GLASS DESIGN TOKENS
+   Dois temas: dark-purple (padrão) e black-glass
+   ============================================= */
+
+:root,
+[data-theme="dark-purple"] {
+  /* Backgrounds */
+  --bg-base:        #060409;
+  --bg-mid:         #0d0714;
+  --bg-deep:        #140b20;
+
+  /* Glass */
+  --glass-fill:     rgba(255, 255, 255, 0.07);
+  --glass-fill-strong: rgba(255, 255, 255, 0.11);
+  --glass-border:   rgba(255, 255, 255, 0.13);
+  --glass-border-hover: rgba(168, 85, 247, 0.45);
+  --glass-blur:     blur(20px);
+
+  /* Orbs de luz de fundo */
+  --orb-primary:    rgba(168, 85, 247, 0.22);
+  --orb-secondary:  rgba(236, 72, 153, 0.16);
+
+  /* Acentos — Purple / Orange / Pink */
+  --accent-1:       #a855f7;
+  --accent-2:       #f97316;
+  --accent-3:       #ec4899;
+  --accent-gradient: linear-gradient(135deg, #a855f7, #f97316, #ec4899);
+  --accent-gradient-short: linear-gradient(135deg, #a855f7, #ec4899);
+
+  /* Texto */
+  --text-primary:   #ffffff;
+  --text-secondary: rgba(255, 255, 255, 0.68);
+  --text-muted:     rgba(255, 255, 255, 0.38);
+  --text-accent:    #a855f7;
+
+  /* Status */
+  --color-success:  #4ade80;
+  --color-danger:   #ec4899;
+  --color-warning:  #f97316;
+
+  /* Border radius */
+  --radius-sm:      8px;
+  --radius-md:      12px;
+  --radius-lg:      18px;
+  --radius-xl:      24px;
+  --radius-pill:    999px;
+
+  /* Sombra sutil nos cards */
+  --card-shadow:    0 4px 24px rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="black-glass"] {
+  --bg-base:        #000000;
+  --bg-mid:         #050308;
+  --bg-deep:        #0a0510;
+
+  --glass-fill:     rgba(255, 255, 255, 0.04);
+  --glass-fill-strong: rgba(255, 255, 255, 0.07);
+  --glass-border:   rgba(255, 255, 255, 0.07);
+  --glass-border-hover: rgba(168, 85, 247, 0.35);
+
+  --orb-primary:    rgba(168, 85, 247, 0.14);
+  --orb-secondary:  rgba(236, 72, 153, 0.10);
+
+  --card-shadow:    0 4px 32px rgba(0, 0, 0, 0.7);
+
+  /* Acentos e texto iguais ao dark-purple */
+  --accent-1:       #a855f7;
+  --accent-2:       #f97316;
+  --accent-3:       #ec4899;
+  --accent-gradient: linear-gradient(135deg, #a855f7, #f97316, #ec4899);
+  --accent-gradient-short: linear-gradient(135deg, #a855f7, #ec4899);
+  --text-primary:   #ffffff;
+  --text-secondary: rgba(255, 255, 255, 0.65);
+  --text-muted:     rgba(255, 255, 255, 0.30);
+  --text-accent:    #a855f7;
+  --color-success:  #4ade80;
+  --color-danger:   #ec4899;
+  --color-warning:  #f97316;
+}

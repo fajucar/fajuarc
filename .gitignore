@@ -1,0 +1,37 @@
+node_modules
+dist
+coverage/
+*.log
+.DS_Store
+
+# Environment files — NEVER commit. Only the placeholder template is tracked.
+.env
+.env.*
+!.env.example
+
+# Tooling / build output
+.claude/
+artifacts/
+cache/
+typechain/
+typechain-types/
+
+# Runtime JSON DBs (per network) — contain user data, NEVER commit
+server/wallets-db*.json
+server/wallets-db*.bak*
+server/scheduled-payments-db*.json
+
+# Private keys and recovery material — NEVER commit.
+# Privy cannot recover authorization keys; Circle recovery files reset the entity secret.
+*.pem
+privy-authorization-*.pem
+*entity_secret*
+recovery_file*.dat
+*.key
+
+# Git bundles / repository backups (may contain purged history)
+*.bundle
+
+# Local session notes and private drafts — never commit
+RESUMO-SESSAO.md
+private/

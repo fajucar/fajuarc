@@ -1,0 +1,16 @@
+{
+  "name": "Arc Guardian",
+  "description": "A guardian protecting the Arc ecosystem. The Guardian represents the security and stability that Arc Network provides.",
+  "image": "http://localhost:3000/assets/nfts/arc_guardian.png",
+  "external_url": "",
+  "attributes": [
+    {
+      "trait_type": "Type",
+      "value": "Guardian"
+    },
+    {
+      "trait_type": "Network",
+      "value": "Arc Testnet"
+    }
+  ]
+}

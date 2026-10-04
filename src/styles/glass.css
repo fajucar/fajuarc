@@ -1,0 +1,405 @@
+/* =============================================
+   FAJUARC — GLASS UTILITY CLASSES
+   ============================================= */
+
+/* Reset de fonte global */
+* {
+  box-sizing: border-box;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+}
+
+/* Body / fundo com gradiente e orbs */
+body {
+  background: linear-gradient(135deg, var(--bg-base), var(--bg-mid), var(--bg-deep));
+  min-height: 100vh;
+  color: var(--text-primary);
+  position: relative;
+  overflow-x: hidden;
+  transition: background 0.4s ease;
+}
+
+/* Orbs de luz — elementos decorativos de fundo */
+body::before {
+  content: '';
+  position: fixed;
+  top: -150px;
+  left: -80px;
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, var(--orb-primary), transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+  transition: all 0.5s ease;
+}
+
+body::after {
+  content: '';
+  position: fixed;
+  bottom: -80px;
+  right: -80px;
+  width: 420px;
+  height: 420px;
+  background: radial-gradient(circle, var(--orb-secondary), transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+  transition: all 0.5s ease;
+}
+
+/* Card Glass — classe principal para todos os cards */
+.glass-card {
+  background: var(--glass-fill);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: var(--card-shadow);
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Brilho sutil no topo do card */
+.glass-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--glass-border), transparent);
+  pointer-events: none;
+}
+
+.glass-card:hover {
+  border-color: var(--glass-border-hover);
+}
+
+/* Glass forte — para inputs e elementos internos */
+.glass-inner {
+  background: var(--glass-fill-strong);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+}
+
+/* Botão primário com gradiente */
+.btn-gradient {
+  background: var(--accent-gradient);
+  border: none;
+  border-radius: var(--radius-md);
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  transition: opacity 0.2s ease, transform 0.15s ease;
+}
+
+.btn-gradient:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.btn-gradient:active {
+  transform: scale(0.98);
+}
+
+/* Botão outline glass */
+.btn-glass {
+  background: var(--glass-fill);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-glass:hover {
+  border-color: var(--accent-1);
+  color: var(--text-primary);
+}
+
+/* Texto gradiente */
+.text-gradient {
+  background: var(--accent-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Tag de versão (V2 / V3) */
+.version-tag {
+  padding: 3px 10px;
+  border-radius: var(--radius-pill);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.version-tag.active {
+  background: var(--accent-gradient-short);
+  color: #fff;
+}
+
+.version-tag.inactive {
+  background: var(--glass-fill);
+  border: 1px solid var(--glass-border);
+  color: var(--text-muted);
+}
+
+/* Input glass */
+.input-glass {
+  background: var(--glass-fill);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.input-glass:focus {
+  border-color: var(--accent-1);
+}
+
+.input-glass::placeholder {
+  color: var(--text-muted);
+}
+
+/* Badge de status online */
+.status-online {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--color-success);
+}
+
+.status-online::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  background: var(--color-success);
+  border-radius: 50%;
+  display: inline-block;
+  animation: pulse-dot 2s infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* Divider */
+.glass-divider {
+  height: 1px;
+  background: var(--glass-border);
+  border: none;
+}
+
+/* =============================================
+   NAVBAR
+   ============================================= */
+
+.navbar-glass {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  background: var(--glass-fill);
+  border-bottom: 1px solid var(--glass-border);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.navbar-logo {
+  font-size: 18px;
+  font-weight: 800;
+  background: var(--accent-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: -0.3px;
+}
+
+.navbar-tabs {
+  display: flex;
+  gap: 4px;
+  background: var(--glass-fill);
+  border-radius: var(--radius-md);
+  padding: 4px;
+  border: 1px solid var(--glass-border);
+}
+
+.navbar-tab {
+  padding: 6px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  color: var(--text-muted);
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.navbar-tab.active {
+  background: var(--accent-gradient-short);
+  color: #fff;
+}
+
+.navbar-tab:hover:not(.active) {
+  color: var(--text-primary);
+  background: var(--glass-fill-strong);
+}
+
+.navbar-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--accent-gradient);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+/* =============================================
+   BOTTOM NAV — Mobile only
+   ============================================= */
+
+.bottom-nav {
+  display: none;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  background: var(--glass-fill-strong);
+  border-top: 1px solid var(--glass-border);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  padding: 8px 0 max(8px, env(safe-area-inset-bottom));
+}
+
+.bottom-nav-inner {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+}
+
+.bottom-nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 6px 12px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 600;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  transition: color 0.2s ease;
+  border-radius: var(--radius-sm);
+}
+
+.bottom-nav-item.active {
+  color: var(--accent-1);
+}
+
+.bottom-nav-item svg,
+.bottom-nav-item .nav-icon {
+  font-size: 20px;
+  width: 22px;
+  height: 22px;
+}
+
+/* =============================================
+   TEMA TOGGLE BUTTON
+   ============================================= */
+
+.theme-toggle {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding: 5px 12px;
+  border-radius: var(--radius-pill);
+  background: var(--glass-fill);
+  border: 1px solid var(--glass-border);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  transition: all 0.2s ease;
+}
+
+.theme-toggle:hover {
+  border-color: var(--accent-1);
+  color: var(--text-primary);
+}
+
+/* =============================================
+   RESPONSIVO
+   ============================================= */
+
+/* Desktop: navbar horizontal, esconde bottom nav */
+@media (min-width: 768px) {
+  .navbar-glass {
+    display: flex;
+  }
+
+  .bottom-nav {
+    display: none !important;
+  }
+
+  .main-content {
+    padding: 20px;
+    padding-bottom: 20px;
+  }
+}
+
+/* Mobile: esconde navbar tabs, mostra bottom nav */
+@media (max-width: 767px) {
+  .navbar-tabs {
+    display: none;
+  }
+
+  .bottom-nav {
+    display: block;
+  }
+
+  .main-content {
+    padding: 12px;
+    padding-bottom: 80px; /* espaço para o bottom nav */
+  }
+
+  .glass-card {
+    border-radius: var(--radius-md);
+  }
+
+  .navbar-glass {
+    padding: 10px 14px;
+  }
+}
+
+/* Grid responsivo para cards */
+.cards-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+@media (max-width: 767px) {
+  .cards-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+}

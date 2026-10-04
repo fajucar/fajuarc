@@ -1,0 +1,16 @@
+{
+  "name": "Arc Explorer",
+  "description": "A brave explorer discovering the Arc Network. The Explorer represents the pioneers who venture into the future of deterministic finality.",
+  "image": "http://localhost:3000/assets/nfts/arc_explorer.png",
+  "external_url": "",
+  "attributes": [
+    {
+      "trait_type": "Type",
+      "value": "Explorer"
+    },
+    {
+      "trait_type": "Network",
+      "value": "Arc Testnet"
+    }
+  ]
+}

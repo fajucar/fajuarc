@@ -1,0 +1,37 @@
+{
+  "chainId": 5042002,
+  "v3Factory": "0xBA83F76eada22488aD91Ded08AdC3082303D0354",
+  "v3SwapRouter": "0x9349B05b5f1e00A49EED8eCd1Da556Eb2f6260FC",
+  "v3PositionManager": "0xC61608f54EEFf2b229e3a4858236e47f2701a80f",
+  "v3Quoter": "",
+  "weth9": "0x392016cA446b46df8122D41C9968bb927E5c93b6",
+  "v3Pool_USDC_EURC_500": "0x6071124c5472ECD67418A05Dcefb1Ce5613f30fe",
+  "v3Pool_USDC_FAJU_500": "0x5b763c3eF541F8625f736718e2249a5df4704c83",
+  "v3Pool_FAJU_ARCX_500": "0x426bCee4D9B05827651E0D15087473257d7cD00A",
+  "v3Pool_USDC_ARCX_500": "0x0c1792dd9435C1e5470b31f57f7f24D68c1ff27B",
+  "v3Pool_USDC_CIRBTC_500": "0xe4946ac62C09a98739A3F4dA606e40e99142078D",
+  "v3Pool_EURC_CIRBTC_500": "0x3185213E4f65bb83355D1f003AfC80D8445EA04C",
+  "v3Pool_FAJU_CIRBTC_500": "0x88308BDf04D48cd86fd19EBd6E8D822958421821",
+  "tokens": {
+    "USDC": {
+      "address": "0x3600000000000000000000000000000000000000",
+      "decimals": 6
+    },
+    "EURC": {
+      "address": "0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a",
+      "decimals": 6
+    },
+    "FAJU": {
+      "address": "0x0e8147CdB023474f440636051AA26f7DCaf2aEa7",
+      "decimals": 18
+    },
+    "ARCX": {
+      "address": "0xA99F353665F89784f0442FB666ea775b6C1af87d",
+      "decimals": 18
+    },
+    "cirBTC": {
+      "address": "0xf0C4a4CE82A5746AbAAd9425360Ab04fbBA432BF",
+      "decimals": 8
+    }
+  }
+}

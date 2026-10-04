@@ -1,0 +1,152 @@
+{
+  "nav": {
+    "home": "Início",
+    "agents": "Agentes",
+    "swap": "Swap",
+    "pools": "Pools",
+    "myPools": "Minhas Pools"
+  },
+  "language": {
+    "pt": "PT",
+    "en": "EN"
+  },
+  "footer": {
+    "copyright": "© 2026",
+    "runningOn": "Rodando na Arc Mainnet"
+  },
+  "home": {
+    "statsTitle": "Estatísticas da Rede",
+    "statsSubtitle": "Dados em tempo real da RPC da Arc Mainnet. Clique nos cards para verificar no explorer."
+  },
+  "hero": {
+    "live": "Em operação na Arc Mainnet",
+    "titleLine1": "Envie dinheiro",
+    "titleLine2": "como uma mensagem.",
+    "subtitle": "Pagamentos instantâneos em USDC na Arc Network. Compartilhe um link e receba via Twitter, Telegram ou Discord. Sem fricção.",
+    "poweredBy": "Desenvolvido com Circle · Arc Network"
+  },
+  "stats": {
+    "tps": "Transações/seg",
+    "tpsTooltip": "Estimado com base na atividade da rede. Clique para verificar no explorer",
+    "finality": "Tempo de Finalidade",
+    "finalityTooltip": "Tempo de finalidade determinística na Arc Network",
+    "gasPrice": "Preço do Gas (USDC)",
+    "gasPriceTooltip": "Preço atual do gas via RPC. Clique para verificar no explorer",
+    "latestBlock": "Último Bloco",
+    "latestBlockTooltip": "Número do último bloco via RPC. Clique para ver no explorer",
+    "viewOnExplorer": "Ver {{label}} no explorer"
+  },
+  "whyArc": {
+    "titlePrefix": "Por que escolher",
+    "titleSuffix": "?",
+    "subtitle": "Desenvolvido para finanças com stablecoins, com recursos que fazem a diferença",
+    "tableFeature": "Recurso",
+    "rows": {
+      "finality": "Tempo de Finalidade",
+      "gasToken": "Token de Gas",
+      "throughput": "Taxa de Transferência (TPS)",
+      "security": "Modelo de Segurança"
+    },
+    "chains": {
+      "ethereum": { "finality": "12-15 min", "gasToken": "ETH (volátil)", "security": "PoS Descentralizado" },
+      "arc": { "finality": "< 1 segundo", "gasToken": "USDC (estável)", "security": "PoA + BFT" },
+      "polygon": { "finality": "2-5 min", "gasToken": "MATIC", "security": "PoS" }
+    },
+    "features": {
+      "instantFinality": "Finalidade Instantânea",
+      "stableGas": "Gas Estável (USDC)",
+      "highTps": "Alto TPS",
+      "institutionalGrade": "Nível Institucional"
+    }
+  },
+  "swap": {
+    "metaDescription": "Troque tokens na FajuARC. Negocie FAJU, ARCX, USDC, EURC na Arc Mainnet.",
+    "subtitle": "Negocie FAJU, ARCX, USDC, EURC na Arc Mainnet",
+    "tabSwap": "Swap",
+    "tabBridge": "Ponte",
+    "tabError": "A aba \"{{tab}}\" encontrou um erro",
+    "tabErrorHint": "Recarregue ou troque para outra aba",
+    "reload": "Recarregar"
+  },
+  "faucet": {
+    "metaDescription": "Receba tokens de teste FAJU e ARCX na Arc Testnet",
+    "subtitle": "Receba 10 FAJU e 10 ARCX (cooldown de 24h). Apenas na Arc Testnet.",
+    "backToSwap": "← Voltar ao Swap"
+  },
+  "agentChat": {
+    "emptyTitle": "Agente pronto",
+    "emptySubtitle": "Pergunte algo ou peça uma ação on-chain",
+    "suggestions": [
+      "Qual é meu saldo?",
+      "Enviar 5 USDC",
+      "Receber tokens do faucet"
+    ],
+    "errorPrefix": "Erro: {{error}}",
+    "unknownError": "Erro desconhecido",
+    "connectionError": "Erro de conexão com o backend.",
+    "walletNotConnected": "Carteira não conectada.",
+    "usdcNotFound": "USDC não encontrado",
+    "tokenNotFound": "Token não encontrado",
+    "faucetTokenNotSupported": "Token não suportado pelo faucet",
+    "actionNotRecognized": "Ação \"{{tool}}\" não reconhecida.",
+    "userCancelled": "Usuário cancelou a ação.",
+    "addLiquidityRedirect": "Para adicionar liquidez, acesse a aba Pools e escolha o par desejado.",
+    "sendSuccess": "{{amount}} USDC enviados para {{address}}",
+    "scheduledPaymentExecuted": "Pagamento executado! {{amount}} {{token}} enviado para {{address}}.",
+    "scheduledPaymentFailed": "Pagamento agendado falhou: {{amount}} {{token}} para {{address}} — {{error}}",
+    "swapSuccess": "Swap de {{amount}} {{tokenIn}} → {{tokenOut}} executado",
+    "swapNoRoute": "Sem liquidez para trocar {{tokenIn}} → {{tokenOut}} no momento",
+    "faucetSuccess": "Tokens {{token}} recebidos do faucet!",
+    "balancesTitle": "Saldos da carteira",
+    "txHistoryTitle": "Histórico de transações",
+    "viewTxOnArcScan": "Ver transação no ArcScan",
+    "placeholderWaiting": "Aguardando…",
+    "placeholderInput": "Pergunte ou peça uma ação…",
+    "txTypes": {
+      "send": "Enviou",
+      "receive": "Recebeu",
+      "swap": "Trocou",
+      "mint": "Mintou",
+      "other": "Movimentou"
+    }
+  },
+  "confirmation": {
+    "cancel": "Cancelar",
+    "confirm": "Confirmar",
+    "params": {
+      "to": "Para",
+      "amount": "Valor",
+      "token": "Token",
+      "tokenIn": "De",
+      "tokenOut": "Para",
+      "amountA": "Qtd A",
+      "amountB": "Qtd B",
+      "tokenA": "Token A",
+      "tokenB": "Token B"
+    }
+  },
+  "pools": {
+    "withdraw": "Retirar",
+    "noLiquidityTitle": "Esta wallet não tem liquidez neste pool",
+    "noLiquidityWallet": "Wallet conectada: {{address}}",
+    "noLiquidityHint": "Se você forneceu liquidez com outra wallet, conecte essa wallet para retirar."
+  },
+  "agentTabs": {
+    "myAgent": "Meu Agente"
+  },
+  "fajuPay": {
+    "subtitle": "Envie e receba USDC na Arc Mainnet",
+    "receive": "Receber",
+    "send": "Enviar",
+    "amountPlaceholder": "Valor em USDC (opcional)",
+    "paymentLink": "Link de pagamento",
+    "connectWallet": "Conecte sua carteira",
+    "connectToUse": "Faça login com Google ou MetaMask para usar o FajuPay"
+  },
+  "network": {
+    "switchRequired": "Troque sua carteira para a Arc Mainnet para continuar",
+    "wrongNetwork": "Sua carteira está em outra rede (chain {{chainId}}). As transações aqui só funcionam na Arc Mainnet.",
+    "switchButton": "Trocar para Arc Mainnet",
+    "switching": "Trocando de rede…"
+  }
+}

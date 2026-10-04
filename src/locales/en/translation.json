@@ -1,0 +1,222 @@
+{
+  "nav": {
+    "home": "Home",
+    "agents": "Agents",
+    "swap": "Swap",
+    "pools": "Pools",
+    "myPools": "My Pools"
+  },
+  "language": {
+    "pt": "PT",
+    "en": "EN"
+  },
+  "footer": {
+    "copyright": "© 2026",
+    "runningOn": "Running on Arc Mainnet"
+  },
+  "home": {
+    "statsTitle": "Network Statistics",
+    "statsSubtitle": "Real-time data from Arc Mainnet RPC. Click on cards to verify on explorer."
+  },
+  "hero": {
+    "live": "Live on Arc Mainnet",
+    "titleLine1": "Send money",
+    "titleLine2": "like a message.",
+    "subtitle": "Instant USDC payments on Arc Network. Share a link and get paid via Twitter, Telegram or Discord. No friction.",
+    "poweredBy": "Powered by Circle · Arc Network"
+  },
+  "stats": {
+    "tps": "Transactions/sec",
+    "tpsTooltip": "Estimated from network activity. Click to verify on explorer",
+    "finality": "Finality Time",
+    "finalityTooltip": "Deterministic finality time on Arc Network",
+    "gasPrice": "Gas Price (USDC)",
+    "gasPriceTooltip": "Current gas price from RPC. Click to verify on explorer",
+    "latestBlock": "Latest Block",
+    "latestBlockTooltip": "Latest block number from RPC. Click to view on explorer",
+    "viewOnExplorer": "View {{label}} on explorer"
+  },
+  "whyArc": {
+    "titlePrefix": "Why Choose",
+    "titleSuffix": "?",
+    "subtitle": "Purpose-built for stablecoin finance with features that matter",
+    "tableFeature": "Feature",
+    "rows": {
+      "finality": "Finality Time",
+      "gasToken": "Gas Token",
+      "throughput": "Throughput (TPS)",
+      "security": "Security Model"
+    },
+    "chains": {
+      "ethereum": { "finality": "12-15 min", "gasToken": "ETH (volatile)", "security": "Decentralized PoS" },
+      "arc": { "finality": "< 1 second", "gasToken": "USDC (stable)", "security": "PoA + BFT" },
+      "polygon": { "finality": "2-5 min", "gasToken": "MATIC", "security": "PoS" }
+    },
+    "features": {
+      "instantFinality": "Instant Finality",
+      "stableGas": "Stable Gas (USDC)",
+      "highTps": "High TPS",
+      "institutionalGrade": "Institutional Grade"
+    }
+  },
+  "swap": {
+    "metaDescription": "Swap tokens on FajuARC. Trade FAJU, ARCX, USDC, EURC on Arc Mainnet.",
+    "subtitle": "Trade FAJU, ARCX, USDC, EURC on Arc Mainnet",
+    "tabSwap": "Swap",
+    "tabBridge": "Bridge",
+    "tabError": "Tab \"{{tab}}\" encountered an error",
+    "tabErrorHint": "Please reload or switch to another tab",
+    "reload": "Reload"
+  },
+  "faucet": {
+    "metaDescription": "Claim FAJU and ARCX test tokens on Arc Testnet",
+    "subtitle": "Claim 10 FAJU and 10 ARCX (24h cooldown). Arc Testnet only.",
+    "backToSwap": "← Back to Swap"
+  },
+  "agentChat": {
+    "emptyTitle": "Agent ready",
+    "emptySubtitle": "Ask something or request an on-chain action",
+    "suggestions": [
+      "What's my balance?",
+      "Send 5 USDC",
+      "Get tokens from the faucet"
+    ],
+    "errorPrefix": "Error: {{error}}",
+    "unknownError": "Unknown error",
+    "connectionError": "Backend connection error.",
+    "walletNotConnected": "Wallet not connected.",
+    "usdcNotFound": "USDC not found",
+    "tokenNotFound": "Token not found",
+    "faucetTokenNotSupported": "Token not supported by the faucet",
+    "actionNotRecognized": "Action \"{{tool}}\" not recognized.",
+    "userCancelled": "User cancelled the action.",
+    "addLiquidityRedirect": "To add liquidity, go to the Pools tab and choose the desired pair.",
+    "sendSuccess": "{{amount}} USDC sent to {{address}}",
+    "scheduledPaymentExecuted": "Scheduled payment executed! {{amount}} {{token}} sent to {{address}}.",
+    "scheduledPaymentFailed": "Scheduled payment failed: {{amount}} {{token}} to {{address}} — {{error}}",
+    "swapSuccess": "Swap of {{amount}} {{tokenIn}} → {{tokenOut}} executed",
+    "swapNoRoute": "No liquidity to swap {{tokenIn}} → {{tokenOut}} right now",
+    "faucetSuccess": "{{token}} tokens received from faucet!",
+    "balancesTitle": "Wallet Balances",
+    "txHistoryTitle": "Transaction History",
+    "viewTxOnArcScan": "View transaction on ArcScan",
+    "placeholderWaiting": "Waiting…",
+    "placeholderInput": "Ask or request an action…",
+    "txTypes": {
+      "send": "Sent",
+      "receive": "Received",
+      "swap": "Swapped",
+      "mint": "Minted",
+      "other": "Moved"
+    }
+  },
+  "confirmation": {
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "params": {
+      "to": "To",
+      "amount": "Amount",
+      "token": "Token",
+      "tokenIn": "From",
+      "tokenOut": "To",
+      "amountA": "Amount A",
+      "amountB": "Amount B",
+      "tokenA": "Token A",
+      "tokenB": "Token B"
+    }
+  },
+  "pools": {
+    "connectWallet": "Connect your wallet",
+    "insufficientBalance": "Insufficient {{symbol}} balance",
+    "approving": "Approving {{symbol}}...",
+    "addingLiquidity": "Adding liquidity...",
+    "liquidityAdded": "Liquidity added",
+    "addLiquidityFailed": "Failed to add liquidity",
+    "selectTokensAndConnect": "Select tokens and connect your wallet",
+    "selectDifferentTokens": "Select different tokens",
+    "creatingPair": "Creating pair...",
+    "createPairFailed": "Failed to create pair",
+    "pairCreated": "Pair created",
+    "pairAddressNotFound": "Pair address not found",
+    "connectPrefix": "Connect to",
+    "connectSuffix": "to view the pools.",
+    "liquidityPools": "Liquidity Pools",
+    "addLiquidity": "Add Liquidity",
+    "refresh": "Refresh",
+    "noPoolsAvailable": "No pools available.",
+    "createFirstPool": "Create the first pool to get started!",
+    "selectTokens": "Select tokens",
+    "connectToAddLiquidity": "Connect your wallet to add liquidity.",
+    "balanceLabel": "Balance: {{value}}",
+    "selectTokenA": "Select token A",
+    "selectTokenB": "Select token B",
+    "checkingPair": "Checking pair...",
+    "newPair": "New pair — you set the initial price.",
+    "existingPair": "Existing pair — proportional liquidity.",
+    "continue": "Continue →",
+    "withdraw": "Withdraw",
+    "noLiquidityTitle": "This wallet has no liquidity in this pool",
+    "noLiquidityWallet": "Connected wallet: {{address}}",
+    "noLiquidityHint": "If you added liquidity with a different wallet, connect that wallet to withdraw it."
+  },
+  "myPools": {
+    "back": "Back"
+  },
+  "passport": {
+    "metaTitle": "Web3 Passport - FajuARC",
+    "metaDescription": "Your Web3 passport on Arc Mainnet",
+    "title": "Web3 Passport",
+    "subtitle": "Your on-chain identity and reputation on Arc Mainnet",
+    "active": "Active",
+    "defaultAgentName": "My Agent",
+    "anonymousWallet": "Anonymous Wallet",
+    "error": "Error",
+    "errorLoadingData": "Error loading data",
+    "loadingIdentity": "Loading identity...",
+    "scoreMax": "Web3 Score · max 1000",
+    "transactions": "Transactions",
+    "uniqueContracts": "Unique Contracts",
+    "activeTokens": "Active Tokens",
+    "walletAge": "Wallet Age",
+    "firstActivity": "First Activity",
+    "lastActivity": "Last Activity",
+    "sentCount": "Sent ({{count}})",
+    "receivedCount": "Received ({{count}})",
+    "sent": "Sent",
+    "received": "Received",
+    "viewOnExplorer": "View on Explorer",
+    "close": "Close",
+    "walletIdentity": "Wallet Identity",
+    "yourWallet": "Your wallet",
+    "activeSince": "Active since {{date}} · {{days}} days",
+    "viewMyWallet": "View my wallet",
+    "connectToViewIdentity": "Connect your wallet to view your identity",
+    "searchPlaceholder": "0x... search any wallet",
+    "search": "Search",
+    "calculatingScore": "Calculating score...",
+    "usdcVol": "USDC Vol.",
+    "activeDays": "Active Days",
+    "enterOrConnect": "Enter or connect a wallet to view the score",
+    "recentActivity": "Recent Activity · Arc Mainnet",
+    "noTransactionsFound": "No transactions found",
+    "contract": "Contract"
+  },
+  "agentTabs": {
+    "myAgent": "My Agent"
+  },
+  "fajuPay": {
+    "subtitle": "Send and receive USDC on Arc Mainnet",
+    "receive": "Receive",
+    "send": "Send",
+    "amountPlaceholder": "Amount in USDC (optional)",
+    "paymentLink": "Payment link",
+    "connectWallet": "Connect your wallet",
+    "connectToUse": "Log in with Google or MetaMask to use FajuPay"
+  },
+  "network": {
+    "switchRequired": "Switch your wallet to Arc Mainnet to continue",
+    "wrongNetwork": "Your wallet is on another network (chain {{chainId}}). Transactions here only run on Arc Mainnet.",
+    "switchButton": "Switch to Arc Mainnet",
+    "switching": "Switching network…"
+  }
+}

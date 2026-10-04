@@ -1,0 +1,1 @@
+﻿[{"type":"function","name":"mintImageNFT","inputs":[{"name":"tokenURI","type":"string"}],"outputs":[{"name":"","type":"uint256"}]}]
