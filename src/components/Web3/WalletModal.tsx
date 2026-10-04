@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { usePrivy, useConnectWallet, type WalletListEntry } from '@privy-io/react-auth'
 import { ExternalLink, Wallet as WalletIcon, Loader2 } from 'lucide-react'
 import { isMobileDevice } from '@/utils/device'
@@ -16,6 +16,42 @@ type InjectedProvider = {
   isRabby?: boolean
   isCoinbaseWallet?: boolean
   isOkxWallet?: boolean
+}
+
+// EIP-6963: cada extensão se anuncia com o próprio rdns, mesmo quando várias
+// estão instaladas e só uma controla window.ethereum.
+interface Eip6963ProviderInfo {
+  uuid: string
+  name: string
+  icon: string
+  rdns: string
+}
+
+interface Eip6963ProviderDetail {
+  info: Eip6963ProviderInfo
+  provider: unknown
+}
+
+type Eip6963AnnounceEvent = CustomEvent<Eip6963ProviderDetail>
+
+function useEip6963Providers(): Eip6963ProviderDetail[] {
+  const [providers, setProviders] = useState<Eip6963ProviderDetail[]>([])
+
+  useEffect(() => {
+    const onAnnounce = (event: Event) => {
+      const detail = (event as Eip6963AnnounceEvent).detail
+      if (!detail?.info?.rdns) return
+      setProviders((prev) =>
+        prev.some((p) => p.info.rdns === detail.info.rdns) ? prev : [...prev, detail],
+      )
+    }
+
+    window.addEventListener('eip6963:announceProvider', onAnnounce)
+    window.dispatchEvent(new Event('eip6963:requestProvider'))
+    return () => window.removeEventListener('eip6963:announceProvider', onAnnounce)
+  }, [])
+
+  return providers
 }
 
 function getInjectedProviders(): InjectedProvider[] {
@@ -42,16 +78,80 @@ interface WalletOption {
   id: string
   name: string
   recommended: boolean
-  /** Which Privy-known wallet to jump straight to (skips Privy's own picker
-   *  screen). 'detected_wallets' lets Privy figure out the actual injected
-   *  provider itself — used for wallets Privy has no explicit id for. */
+  icon?: string
+  /** Passed as `connectWallet({ walletList: [privyWalletId] })`, so Privy's
+   *  connect modal opens showing only this wallet — the user still clicks it
+   *  once there. Privy 3.x ignores `preSelectedWalletId` in connectWallet(),
+   *  so there is no way to skip that screen. 'detected_ethereum_wallets'
+   *  lists every injected wallet Privy detects itself. */
   privyWalletId: WalletListEntry
+}
+
+/** EIP-6963 rdns → Privy wallet id. MetaMask first: it is the recommended one. */
+const KNOWN_EIP6963_WALLETS: { rdns: string; privyWalletId: WalletListEntry; recommended: boolean }[] = [
+  { rdns: 'io.metamask', privyWalletId: 'metamask', recommended: true },
+  { rdns: 'io.rabby', privyWalletId: 'rabby_wallet', recommended: false },
+  { rdns: 'com.coinbase.wallet', privyWalletId: 'coinbase_wallet', recommended: false },
+  { rdns: 'com.okex.wallet', privyWalletId: 'okx_wallet', recommended: false },
+]
+
+function walletsFromEip6963(announced: Eip6963ProviderDetail[]): WalletOption[] {
+  const list: WalletOption[] = []
+  for (const known of KNOWN_EIP6963_WALLETS) {
+    const detail = announced.find((p) => p.info.rdns === known.rdns)
+    if (detail) {
+      list.push({
+        id: known.rdns,
+        name: detail.info.name,
+        recommended: known.recommended,
+        icon: detail.info.icon,
+        privyWalletId: known.privyWalletId,
+      })
+    }
+  }
+
+  // Announced wallets with no explicit Privy id — let Privy list them itself.
+  if (list.length === 0 && announced.length > 0) {
+    list.push({ id: 'injected', name: 'Browser Wallet', recommended: true, privyWalletId: 'detected_ethereum_wallets' })
+  }
+  return list
+}
+
+/** Legacy fallback for browsers/extensions without EIP-6963. Rabby sets
+ *  isMetaMask too, so MetaMask is only inferred when isRabby is absent. */
+function walletsFromWindowEthereum(): WalletOption[] {
+  const hasRabby = isInstalled((p) => Boolean(p?.isRabby))
+  const hasMetaMask = isInstalled((p) => Boolean(p?.isMetaMask) && !p?.isRabby)
+  const hasCoinbase = isInstalled((p) => Boolean(p?.isCoinbaseWallet))
+  const hasOkx = isInstalled((p) => Boolean(p?.isOkxWallet))
+
+  const list: WalletOption[] = []
+  if (hasMetaMask) {
+    list.push({ id: 'metamask', name: 'MetaMask', recommended: true, privyWalletId: 'metamask' })
+  }
+  if (hasRabby) {
+    list.push({ id: 'rabby', name: 'Rabby Wallet', recommended: false, privyWalletId: 'rabby_wallet' })
+  }
+  if (hasCoinbase) {
+    list.push({ id: 'coinbase', name: 'Coinbase Wallet', recommended: false, privyWalletId: 'coinbase_wallet' })
+  }
+  if (hasOkx) {
+    list.push({ id: 'okx', name: 'OKX Wallet', recommended: false, privyWalletId: 'okx_wallet' })
+  }
+
+  // An injected provider is present but didn't match any known flag above
+  // (some extensions don't set isMetaMask/isRabby/etc.) — let Privy detect it.
+  if (list.length === 0 && getInjectedProviders().length > 0) {
+    list.push({ id: 'injected', name: 'Browser Wallet', recommended: true, privyWalletId: 'detected_ethereum_wallets' })
+  }
+  return list
 }
 
 export function WalletModal({ isOpen, onClose }: WalletModalProps) {
   const { authenticated } = usePrivy()
   const { connectWalletConnect } = useArcWallet()
   const mobile = isMobileDevice()
+  const announced = useEip6963Providers()
   const [connectError, setConnectError] = useState<string | null>(null)
   const [connectingWc, setConnectingWc] = useState(false)
 
@@ -103,48 +203,21 @@ export function WalletModal({ isOpen, onClose }: WalletModalProps) {
     }
   }, [authenticated, isOpen, onClose])
 
-  // Recalcula quando o modal abre (garante detecção atualizada)
-  const wallets = useMemo<WalletOption[]>(() => {
-    if (mobile) return []
-
-    const hasMetaMask = isInstalled((p) => Boolean(p?.isMetaMask))
-    const hasRabby = isInstalled((p) => Boolean(p?.isRabby))
-    const hasCoinbase = isInstalled((p) => Boolean(p?.isCoinbaseWallet))
-    const hasOkx = isInstalled((p) => Boolean(p?.isOkxWallet))
-
-    const list: WalletOption[] = []
-
-    if (hasMetaMask) {
-      list.push({ id: 'metamask', name: 'MetaMask', recommended: true, privyWalletId: 'metamask' })
-    }
-    if (hasRabby) {
-      list.push({ id: 'rabby', name: 'Rabby Wallet', recommended: false, privyWalletId: 'detected_wallets' })
-    }
-    if (hasCoinbase) {
-      list.push({ id: 'coinbase', name: 'Coinbase Wallet', recommended: false, privyWalletId: 'coinbase_wallet' })
-    }
-    if (hasOkx) {
-      list.push({ id: 'okx', name: 'OKX Wallet', recommended: false, privyWalletId: 'okx_wallet' })
-    }
-
-    // An injected provider is present but didn't match any known flag above
-    // (some extensions don't set isMetaMask/isRabby/etc.) — let Privy detect it.
-    if (list.length === 0 && getInjectedProviders().length > 0) {
-      list.push({ id: 'injected', name: 'Browser Wallet', recommended: true, privyWalletId: 'detected_wallets' })
-    }
-
+  // Recomputed every render: EIP-6963 announcements can arrive after mount,
+  // and window.ethereum is only consulted when nothing was announced.
+  const wallets: WalletOption[] = []
+  if (!mobile) {
+    wallets.push(...(announced.length > 0 ? walletsFromEip6963(announced) : walletsFromWindowEthereum()))
     if (WALLETCONNECT_PROJECT_ID) {
-      list.push({ id: 'walletconnect', name: 'WalletConnect', recommended: list.length === 0, privyWalletId: 'wallet_connect' })
+      wallets.push({ id: 'walletconnect', name: 'WalletConnect', recommended: wallets.length === 0, privyWalletId: 'wallet_connect' })
     }
-
-    return list
-  }, [mobile])
+  }
 
   if (!isOpen) return null
 
   const handleConnect = (wallet: WalletOption) => {
     setConnectError(null)
-    connectWallet({ preSelectedWalletId: wallet.privyWalletId })
+    connectWallet({ walletList: [wallet.privyWalletId] })
   }
 
   return (
@@ -234,7 +307,9 @@ export function WalletModal({ isOpen, onClose }: WalletModalProps) {
                     <div className="flex items-center justify-between">
                       <div className="flex flex-col">
                         <div className="flex items-center gap-2">
-                          <WalletIcon className="h-4 w-4 text-slate-400" />
+                          {w.icon
+                            ? <img src={w.icon} alt="" className="h-4 w-4 rounded-sm" />
+                            : <WalletIcon className="h-4 w-4 text-slate-400" />}
                           <span className="font-medium">{w.name}</span>
                           {w.recommended && (
                             <span className="text-xs px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-400">

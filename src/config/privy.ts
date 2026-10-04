@@ -54,6 +54,7 @@ export const privyConfig: PrivyClientConfig = {
       'metamask',        // desktop + mobile deep link
       'rainbow',         // desktop + mobile
       'okx_wallet',      // desktop + mobile (tem in-app browser)
+      'rabby_wallet',    // desktop (extensão)
       'wallet_connect',  // fallback: 100+ carteiras via WalletConnect
     ],
   },
